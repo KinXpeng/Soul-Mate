@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
 import { bakeVoiceMiddleware } from './server/bake-voice-middleware';
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 // 构建时抓 git 分支 + short commit，注入到 BuildBadge 显示。
 // 非 git 环境（容器、tarball 部署）退化成 'unknown'，不影响构建。
 //
@@ -41,15 +43,12 @@ if (process.env.VITE_HIDE_BUILD_BADGE === '1') showBuildBadge = false;
 if (process.env.VITE_SHOW_BUILD_BADGE === '1') showBuildBadge = true;
 
 export default defineConfig({
-  plugins: [
-    react(),
-    {
-      name: 'bake-voice-middleware',
-      configureServer(server) {
-        server.middlewares.use('/api/minimax/bake-voice', bakeVoiceMiddleware);
-      },
+  plugins: [react(), {
+    name: 'bake-voice-middleware',
+    configureServer(server) {
+      server.middlewares.use('/api/minimax/bake-voice', bakeVoiceMiddleware);
     },
-  ],
+  }, cloudflare()],
   define: {
     __BUILD_BRANCH__: JSON.stringify(gitInfo.branch),
     __BUILD_COMMIT__: JSON.stringify(gitInfo.commit),
