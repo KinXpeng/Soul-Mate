@@ -30,3 +30,10 @@ public/instant-worker.bundle.js
 
 # xiaohongshu-skills (cloned dependency)
 xiaohongshu-skills/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
