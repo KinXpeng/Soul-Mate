@@ -3,7 +3,7 @@ import React from 'react';
 import { OSProvider } from './context/OSContext';
 import { MusicProvider } from './context/MusicContext';
 import PhoneShell from './components/PhoneShell';
-import BuildBadge from './components/BuildBadge';
+// import BuildBadge from './components/BuildBadge';
 import { isIOSStandaloneWebApp } from './utils/iosStandalone';
 
 const App: React.FC = () => {
@@ -32,7 +32,7 @@ const App: React.FC = () => {
           </OSProvider>
         </div>
       </div>
-      <BuildBadge />
+      {/* <BuildBadge /> */}
     </>
   );
 };
