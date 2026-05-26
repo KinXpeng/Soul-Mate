@@ -43,12 +43,15 @@ if (process.env.VITE_HIDE_BUILD_BADGE === '1') showBuildBadge = false;
 if (process.env.VITE_SHOW_BUILD_BADGE === '1') showBuildBadge = true;
 
 export default defineConfig({
-  plugins: [react(), {
-    name: 'bake-voice-middleware',
-    configureServer(server) {
-      server.middlewares.use('/api/minimax/bake-voice', bakeVoiceMiddleware);
+  plugins: [
+    react(),
+    {
+      name: 'bake-voice-middleware',
+      configureServer(server) {
+        server.middlewares.use('/api/minimax/bake-voice', bakeVoiceMiddleware);
+      },
     },
-  }, cloudflare()],
+  ],
   define: {
     __BUILD_BRANCH__: JSON.stringify(gitInfo.branch),
     __BUILD_COMMIT__: JSON.stringify(gitInfo.commit),

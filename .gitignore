@@ -1,3 +1,13 @@
+# 查看当前远程源（确认只有你自己的仓库）
+# git remote -v
+# 添加仓库地址
+# git remote add upstream https://github.com/username/repository.git
+# 如何更新 (拉取上游master分支代码)
+# git pull upstream master
+# 合并代码更新
+#  git merge upstream/master --allow-unrelated-histories
+# 注意/Soul-Mate/apps/Launcher.tsx 文件会报错 :261 直接用index作为key
+
 # Logs
 logs
 *.log
@@ -31,9 +41,5 @@ public/instant-worker.bundle.js
 # xiaohongshu-skills (cloned dependency)
 xiaohongshu-skills/
 
-# wrangler files
-.wrangler
-.dev.vars*
-!.dev.vars.example
-.env*
-!.env.example
+# git worktrees
+.worktrees/
