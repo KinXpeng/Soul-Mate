@@ -4,7 +4,7 @@ export enum AppID {
   Settings = 'settings',
   Character = 'character',
   Chat = 'chat',
-  GroupChat = 'group_chat',
+  GroupChat = 'group_chat', 
   Gallery = 'gallery',
   Music = 'music',
   Browser = 'browser',
@@ -20,8 +20,8 @@ export enum AppID {
   Study = 'study',
   FAQ = 'faq',
   Game = 'game',
-  Worldbook = 'worldbook',
-  Novel = 'novel',
+  Worldbook = 'worldbook', 
+  Novel = 'novel', 
   Bank = 'bank', // New App
   XhsStock = 'xhs_stock', // XHS image stock for publishing
   SpecialMoments = 'special_moments', // Valentine's Day & future events
@@ -35,15 +35,18 @@ export enum AppID {
   Handbook = 'handbook', // 手账 — 跨角色聚合的生活留痕本（LLM 代笔 + 角色生活流陪伴）
   QQBridge = 'qq_bridge', // QQ 桥接 — 通过 NapCat 把 QQ 私聊接入当前角色，共享 IndexedDB 上下文
   HotNews = 'hot_news', // 热点 — 分时段召回的多平台热榜可视化（决定角色可能聊起的话题）
+  VRWorld = 'vrworld', // 彼方 — 角色自主登入的虚拟世界（定时驱动，房间里看小说/听歌/留言，产出活动卡注入聊天+记忆）
+  CharCreatorDev = 'char_creator_dev', // 捏脸系统开发模式 — 仅开发模式可见，向捏人器指定类目追加自定义部件
+  WorldHome = 'world_home', // 家园 — 同世界观多角色共同生活的大世界（观测驱动演绎，每角色独立 LLM 调用 + NPC 世界引擎）
 }
 
 export interface SystemLog {
-  id: string;
-  timestamp: number;
-  type: 'error' | 'network' | 'system';
-  source: string;
-  message: string;
-  detail?: string;
+    id: string;
+    timestamp: number;
+    type: 'error' | 'network' | 'system';
+    source: string;
+    message: string;
+    detail?: string;
 }
 
 export interface AppConfig {
@@ -73,6 +76,10 @@ export interface OSTheme {
   wallpaper: string;
   darkMode: boolean;
   contentColor?: string;
+  /** 桌面整体皮肤。'animalcrossing' = 动森风格（NookPhone 彩色圆角图标 + 暖色界面）。默认 'default'。 */
+  skin?: 'default' | 'animalcrossing';
+  /** 动森皮肤下，聊天 App 是否也跟随换成动森界面。默认 true（undefined 视为 true）。关掉则聊天保持原样式。 */
+  acnhChatSync?: boolean;
   launcherWidgetImage?: string; // DEPRECATED: always stripped on load — never renders.
   launcherWidgets?: Record<string, string>; // slots: 'tl' | 'tr' | 'wide' | 'dsq' (legacy 'bl' / 'br' are banned)
   desktopDecorations?: DesktopDecoration[];
@@ -95,6 +102,12 @@ export interface OSTheme {
   chatSendButtonStyle?: 'circle' | 'pill' | 'minimal';
   /** Instant Push 用户气泡左侧的"准备中"圆点动画。默认开启。 */
   chatPendingIndicator?: boolean;
+  /** 聊天「白框」自定义 CSS：作用于 .sully-chat-header / .sully-chat-inputbar / .sully-chat-root，
+   *  以及顶栏各零件 .sully-chat-back / .sully-chat-avatar / .sully-chat-name / .sully-chat-status /
+   *  .sully-chat-buffs / .sully-chat-token / .sully-chat-trigger。可换色 / 贴图 / 改外形 / 挪位。 */
+  chatChromeCustomCss?: string;
+  /** 隐藏顶栏的情绪 buff 栏。 */
+  chatHideHeaderBuffs?: boolean;
 }
 
 export interface AppearancePreset {
@@ -354,6 +367,27 @@ export interface HotNewsSnapshot {
   fetchedAt: number;   // 拉取时间戳
 }
 
+export interface MemoryPalaceBackupConfig {
+  embedding: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+    dimensions: number;
+  };
+  lightLLM: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  };
+  rerank: {
+    enabled: boolean;
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+    topN: number;
+  };
+}
+
 export interface MemoryFragment {
   id: string;
   date: string;
@@ -373,208 +407,810 @@ export interface SkinSet {
   sprites: Record<string, string>; // emotion -> image URL or base64
 }
 
+// 见面模式文风配置。由「场景布置」面板调整，datePrompts 构建 VN 提示词时读取，
+// 改动即时生效于后续生成（system prompt 每次请求重建）。
+export interface DateStyleConfig {
+  /** 写作风格预设 id，见 datePrompts.DATE_STYLE_PRESETS；缺省 = cinematic（电影感） */
+  style?: string;
+  /** 叙事人称：third-name=「B看着A」 third-you=「B看着你」 first-you=「我看着你」；缺省 = 不注入人称指令 */
+  pov?: 'third-name' | 'third-you' | 'first-you';
+  /** 细节深挖引导：教模型从任意输入里挖素材 + 每轮轮换聚焦线索，对冲"没话找话"式的模型八股；缺省 = 开启 */
+  digDeeper?: boolean;
+  /** 自定义补充文风要求，原样追加进风格块 */
+  extra?: string;
+}
+
 export interface RoomItem {
-  id: string;
-  name: string;
-  type: 'furniture' | 'decor';
-  image: string;
-  x: number;
-  y: number;
-  scale: number;
-  rotation: number;
-  isInteractive: boolean;
-  descriptionPrompt?: string;
+    id: string;
+    name: string;
+    type: 'furniture' | 'decor';
+    image: string;
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    isInteractive: boolean;
+    descriptionPrompt?: string;
 }
 
 export interface RoomTodo {
-  id: string;
-  charId: string;
-  date: string;
-  items: { text: string; done: boolean }[];
-  generatedAt: number;
+    id: string;
+    charId: string;
+    date: string;
+    items: { text: string; done: boolean }[];
+    generatedAt: number;
 }
 
 export interface RoomNote {
-  id: string;
-  charId: string;
-  timestamp: number;
-  content: string;
-  type: 'lyric' | 'doodle' | 'thought' | 'search' | 'gossip';
-  relatedMessageId?: number;
+    id: string;
+    charId: string;
+    timestamp: number;
+    content: string;
+    type: 'lyric' | 'doodle' | 'thought' | 'search' | 'gossip';
+    relatedMessageId?: number; 
 }
 
 export interface ScheduleSlot {
-  startTime: string;    // "08:00"
-  activity: string;     // "晨跑"
-  description?: string; // "在河边慢跑"
-  emoji?: string;       // "🏃"
-  location?: string;    // "河边"
-  innerThought?: string; // 该时段的内心独白，生成时由AI写好，运行时直接注入
+    startTime: string;    // "08:00"
+    activity: string;     // "晨跑"
+    description?: string; // "在河边慢跑"
+    emoji?: string;       // "🏃"
+    location?: string;    // "河边"
+    innerThought?: string; // 该时段的内心独白，生成时由AI写好，运行时直接注入
 }
 
 export interface DailySchedule {
-  id: string;           // `${charId}_${date}`
-  charId: string;
-  date: string;         // YYYY-MM-DD
-  slots: ScheduleSlot[];
-  generatedAt: number;
-  coverImage?: string;  // 用户自定义角色看板图 (持久化)
-  /**
-   * 按时段生成的意识流独白。
-   * key = slot 的 startTime（如 "08:00"），value = 截止该时段的完整内心独白。
-   * 注入时根据当前时间找到最近的 key，直接使用整段文本，不做拼接。
-   */
-  flowNarrative?: Record<string, string>;
+    id: string;           // `${charId}_${date}`
+    charId: string;
+    date: string;         // YYYY-MM-DD
+    slots: ScheduleSlot[];
+    generatedAt: number;
+    coverImage?: string;  // 用户自定义角色看板图 (持久化)
+    /**
+     * 按时段生成的意识流独白。
+     * key = slot 的 startTime（如 "08:00"），value = 截止该时段的完整内心独白。
+     * 注入时根据当前时间找到最近的 key，直接使用整段文本，不做拼接。
+     */
+    flowNarrative?: Record<string, string>;
 }
 
 export interface RoomGeneratedState {
-  actorStatus: string;
-  welcomeMessage: string;
-  items: Record<string, { description: string; reaction: string }>;
-  actorAction?: string; // e.g. 'idle', 'sleep'
+    actorStatus: string;
+    welcomeMessage: string;
+    items: Record<string, { description: string; reaction: string }>;
+    actorAction?: string; // e.g. 'idle', 'sleep'
 }
 
 export interface UserImpression {
-  version: number;
-  lastUpdated?: number;
-  value_map: {
-    likes: string[];
-    dislikes: string[];
-    core_values: string;
-  };
-  behavior_profile: {
-    tone_style: string;
-    emotion_summary: string;
-    response_patterns: string;
-  };
-  emotion_schema: {
-    triggers: {
-      positive: string[];
-      negative: string[];
+    version: number;
+    lastUpdated?: number;
+    value_map: {
+        likes: string[];
+        dislikes: string[];
+        core_values: string;
     };
-    comfort_zone: string;
-    stress_signals: string[];
-  };
-  personality_core: {
-    observed_traits: string[];
-    interaction_style: string;
-    summary: string;
-  };
-  mbti_analysis?: {
-    type: string;
-    reasoning: string;
-    dimensions: {
-      e_i: number;
-      s_n: number;
-      t_f: number;
-      j_p: number;
-    }
-  };
-  observed_changes?: string[];
+    behavior_profile: {
+        tone_style: string;
+        emotion_summary: string;
+        response_patterns: string;
+    };
+    emotion_schema: {
+        triggers: {
+            positive: string[];
+            negative: string[];
+        };
+        comfort_zone: string;
+        stress_signals: string[];
+    };
+    personality_core: {
+        observed_traits: string[];
+        interaction_style: string;
+        summary: string;
+    };
+    mbti_analysis?: {
+        type: string; 
+        reasoning: string;
+        dimensions: {
+            e_i: number; 
+            s_n: number; 
+            t_f: number; 
+            j_p: number; 
+        }
+    };
+    observed_changes?: string[];
 }
 
 export interface BubbleStyle {
-  textColor: string;
-  backgroundColor: string;
-  backgroundImage?: string;
-  backgroundImageOpacity?: number;
-  borderRadius: number;
-  opacity: number;
+    textColor: string;
+    backgroundColor: string;
+    backgroundImage?: string;
+    backgroundImageOpacity?: number;
+    borderRadius: number;
+    opacity: number;
+    
+    decoration?: string;
+    decorationX?: number;
+    decorationY?: number;
+    decorationScale?: number;
+    decorationRotate?: number;
 
-  decoration?: string;
-  decorationX?: number;
-  decorationY?: number;
-  decorationScale?: number;
-  decorationRotate?: number;
+    avatarDecoration?: string;
+    avatarDecorationX?: number;
+    avatarDecorationY?: number;
+    avatarDecorationScale?: number;
+    avatarDecorationRotate?: number;
 
-  avatarDecoration?: string;
-  avatarDecorationX?: number;
-  avatarDecorationY?: number;
-  avatarDecorationScale?: number;
-  avatarDecorationRotate?: number;
-
-  voiceBarBg?: string;
-  voiceBarActiveBg?: string;
-  voiceBarBtnColor?: string;
-  voiceBarWaveColor?: string;
-  voiceBarTextColor?: string;
+    voiceBarBg?: string;
+    voiceBarActiveBg?: string;
+    voiceBarBtnColor?: string;
+    voiceBarWaveColor?: string;
+    voiceBarTextColor?: string;
 }
 
 export interface ChatTheme {
-  id: string;
-  name: string;
-  type: 'preset' | 'custom';
-  user: BubbleStyle;
-  ai: BubbleStyle;
-  customCss?: string;
+    id: string;
+    name: string;
+    type: 'preset' | 'custom';
+    user: BubbleStyle;
+    ai: BubbleStyle;
+    customCss?: string;
 }
 
 export interface PhoneCustomApp {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  prompt: string;
+    id: string;
+    name: string;
+    icon: string; 
+    color: string; 
+    prompt: string; 
 }
 
 export interface PhoneEvidence {
-  id: string;
-  type: 'chat' | 'order' | 'social' | 'delivery' | string;
-  title: string;
-  detail: string;
-  timestamp: number;
-  systemMessageId?: number;
-  value?: string;
+    id: string;
+    type: 'chat' | 'order' | 'social' | 'delivery' | string; 
+    title: string; 
+    detail: string; 
+    timestamp: number;
+    systemMessageId?: number; 
+    value?: string; 
 }
 
 export interface Worldbook {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  createdAt: number;
-  updatedAt: number;
+    id: string;
+    title: string;
+    content: string; 
+    category: string; 
+    createdAt: number;
+    updatedAt: number;
 }
 
 // --- NOVEL / CO-WRITING TYPES ---
 export interface NovelProtagonist {
-  id: string;
-  name: string;
-  role: string; // e.g. "Protagonist", "Villain"
-  description: string;
+    id: string;
+    name: string;
+    role: string; // e.g. "Protagonist", "Villain"
+    description: string;
 }
 
 export interface NovelSegment {
-  id: string;
-  role?: 'writer' | 'commenter' | 'analyst';
-  type: 'discussion' | 'story' | 'analysis';
-  authorId: string;
-  content: string;
-  timestamp: number;
-  focus?: string;
-  targetSegId?: string;
-  meta?: {
-    tone?: string;
-    suggestion?: string;
-    reaction?: string;
-    technique?: string;
-    mood?: string;
-  };
+    id: string;
+    role?: 'writer' | 'commenter' | 'analyst'; 
+    type: 'discussion' | 'story' | 'analysis'; 
+    authorId: string; 
+    content: string;
+    timestamp: number;
+    focus?: string; 
+    targetSegId?: string;
+    meta?: {
+        tone?: string;
+        suggestion?: string;
+        reaction?: string;
+        technique?: string;
+        mood?: string;
+    };
 }
 
 export interface NovelBook {
-  id: string;
-  title: string;
-  subtitle?: string;
-  summary: string;
-  coverStyle: string;
-  coverImage?: string;
-  worldSetting: string;
-  collaboratorIds: string[];
-  protagonists: NovelProtagonist[];
-  segments: NovelSegment[];
-  createdAt: number;
-  lastActiveAt: number;
+    id: string;
+    title: string;
+    subtitle?: string; 
+    summary: string;
+    coverStyle: string; 
+    coverImage?: string; 
+    worldSetting: string;
+    collaboratorIds: string[]; 
+    protagonists: NovelProtagonist[];
+    segments: NovelSegment[];
+    createdAt: number;
+    lastActiveAt: number;
+}
+
+// =====================================================================
+// --- VR WORLD ("彼方") TYPES ---
+// 角色自主登入的虚拟世界。定时器驱动每个角色独立调用一次 LLM，在某个房间
+// 完成一次活动（v1：图书馆看小说），产出一张活动卡注入该角色的 1v1 聊天，
+// 天然被上下文与记忆总结捕捉。
+// =====================================================================
+
+/** 虚拟世界里的房间。 */
+export type VRRoomId = 'library' | 'music' | 'guestbook' | 'gym' | 'postoffice' | 'theater' | 'cafe';
+
+/** 全局小说库里的一本书（所有角色共享原文，各自留批注、各自书签）。 */
+export interface VRWorldNovel {
+    id: string;
+    title: string;
+    author?: string;
+    /** 简介，喂给角色当背景，也用于 UI 展示 */
+    summary?: string;
+    /** 原文按阅读单元切好的段落块（每块 ~数百字，便于定位批注与推进书签）。 */
+    segments: VRNovelSegment[];
+    /** 总字数（缓存，UI 展示用） */
+    totalChars: number;
+    createdAt: number;
+    updatedAt: number;
+}
+
+/** 小说里的一个阅读单元（原文段落块）。 */
+export interface VRNovelSegment {
+    /** 段落索引（0-based，等于在 segments 数组里的位置，持久化以防重排） */
+    idx: number;
+    /** 原文内容 */
+    text: string;
+    /** 字数（缓存） */
+    chars: number;
+}
+
+/**
+ * 一条批注。挂在 (novelId, segIdx) 上，可被任何角色吐槽（targetAnnotationId 指向被吐槽的批注）。
+ * 全局存在 VRWorldNovel 之外的独立集合里——见 db 的 vr_annotations 字段。
+ */
+export interface VRNovelAnnotation {
+    id: string;
+    novelId: string;
+    /** 批注锚定的段落索引 */
+    segIdx: number;
+    /** 作者角色 id（user 留批注时为 'user'） */
+    authorId: string;
+    /** 作者展示名（落库冗余，避免角色删除后丢名） */
+    authorName: string;
+    /** 批注/吐槽正文 */
+    content: string;
+    /** 若是"吐槽别人的吐槽"，指向被吐槽的批注 id */
+    targetAnnotationId?: string;
+    createdAt: number;
+}
+
+/** 角色在虚拟世界里的个人状态（挂在 CharacterProfile.vrState）。 */
+export interface VRWorldCharState {
+    /** 是否启用该角色的自主登入（独立于主动发消息 proactiveConfig） */
+    enabled: boolean;
+    /** 自主登入间隔（分钟，30 对齐；默认 120 = 2h） */
+    intervalMinutes: number;
+    /**
+     * 每本小说的独立书签：novelId -> 下一次该从第几个 segment 开始读。
+     * 这是"每个角色书签不一样"的落点。
+     */
+    novelBookmarks?: Record<string, number>;
+    /** 最近一次活动落在哪个房间（UI 立绘站位用） */
+    currentRoom?: VRRoomId;
+    /** 最近一次活动时间戳（UI / 调度展示用） */
+    lastActiveAt?: number;
+    /** 该角色专属 API 覆盖（用户可单独为「彼方」活动配 api）；不设则回落全局 apiConfig。 */
+    api?: { baseUrl: string; apiKey: string; model: string };
+    /**
+     * 角色在「彼方」里的 chibi 形象（Q版小人）。启用自主登入时要求设定，可随时编辑。
+     * img 不设时回退到角色立绘/头像。
+     */
+    chibi?: {
+        /** 形象图（透明背景 PNG，来自特别时光的捏人器 transparentDataUrl） */
+        img: string;
+        /** 捏人器导出的完整状态，回填用于再编辑（state.selected 可作为 presets） */
+        state?: any;
+        /** 站位缩放（默认 1） */
+        scale?: number;
+        /** 垂直微调（px，负数上移，默认 0） */
+        offsetY?: number;
+        /** 是否水平翻转 */
+        flip?: boolean;
+    };
+}
+
+/** 注入聊天的 vr_card 消息的 metadata 结构。 */
+export interface VRCardMeta {
+    vrCard: true;
+    room: VRRoomId;
+    /** 活动概述（steam 提示式，UI 标题） */
+    activity: string;
+    novelId?: string;
+    novelTitle?: string;
+    /** 本次读到的段落范围 [from, to)（仅 library） */
+    segRange?: [number, number];
+    /** 本次写下的批注摘要（保留正文，原文省略） */
+    annotationExcerpts?: string[];
+    /** 带段落锚点的批注引用（用于从动态点回原文跳转） */
+    annotationRefs?: { segIdx: number; text: string }[];
+    // --- 听歌房专用 ---
+    /** 本次评/听的当前歌（名 - 歌手） */
+    songLabel?: string;
+    /** 本次点/排进队列的自己的歌 */
+    queuedLabel?: string;
+    /** 此刻的行为描述（盯着跳/跟唱/给user录…；娱乐室也用） */
+    behavior?: string;
+    // --- 留言簿专用 ---
+    /** 本次发到留言簿的话（保留正文） */
+    boardPost?: string;
+    /** 本次发到留言簿的所有发言（原样，含回复对象），用于同步进 1v1 聊天/记忆 */
+    boardPosts?: { content: string; replyToName?: string }[];
+    /** 回复了谁 */
+    boardReplyToName?: string;
+    /** 这条卡片是"用户在留言簿发言"广播给该 char 的 */
+    userBoardPost?: boolean;
+    // --- 邮局专用 ---
+    /** 本次写信/回信的正文摘要 */
+    letterExcerpt?: string;
+}
+
+// ============================================================
+// 家园（WorldHome）—— 同世界观多角色共同生活的大世界
+// ============================================================
+
+/**
+ * user 在该世界里的存在感模式：
+ * - light: 轻度——只是观察角色的一个切面，角色依旧以 user 为最重要的人（与 chatapp 聊天人设一致）
+ * - medium: 中度——user 是世界中普通的一份子，不特殊
+ * - heavy: 重度——user 不存在 / 是透明的幽灵，演绎中完全无视（通常用于看角色之间的关系）
+ */
+export type WorldHomeMode = 'light' | 'medium' | 'heavy';
+
+/**
+ * 时间模式（与存在感模式 WorldHomeMode 正交，创建时单独选）：
+ * - real: 真实时间——演绎进各角色的聊天与记忆（world_card），适合「真实系角色」。
+ *         真实使用里中间会穿插大量真人聊天，卡片自然稀疏，不会刷屏。
+ * - sim:  模拟时间——可自定义起始年月日，**不进记忆/聊天**；适合给 OC 们开小剧场图一乐。
+ *         每 20 天（= 40 个半天/轮）自动结一卷：生成一份小说体总结（含人物关系动态走向
+ *         与评价），归档这 20 天原文，往后只把「该角色单方面视角的总结 + ta 最后一天 +
+ *         本卷沉淀的氛围」分开喂回各角色——避免角色被迫开上帝视角。
+ */
+export type WorldTimeMode = 'real' | 'sim';
+
+/** 模拟时间的起始日期（sim 模式专用）。 */
+export interface WorldSimDate {
+    year: number;
+    month: number;
+    day: number;
+}
+
+/** 世界里的 NPC：没有记忆系统，完全服务于世界观，由"世界引擎"一次 LLM 调用全部演绎。 */
+export interface WorldNPC {
+    id: string;
+    name: string;
+    /** 一句话人设（职业/性格/与谁有关） */
+    persona: string;
+    /** 可视化兜底 emoji（NPC 不走捏人系统） */
+    emoji?: string;
+}
+
+/** 居住安排：一间小屋及其住户。不在任何小屋里的成员视为独居（各自的小屋）。 */
+export interface WorldHouse {
+    id: string;
+    name: string;
+    residentIds: string[];
+}
+
+/** 成员（或 NPC）之间的**有向**关系条：from 对 to 的看法，与 to 对 from 的可以不对等。 */
+export interface WorldRelationship {
+    fromId: string;
+    toId: string;
+    /** from 眼中这段关系的名字（我视ta为挚友 / ta是我死对头…），用户可编辑，演绎不强行改 */
+    label?: string;
+    /** 0-100，from 对 to 的好感/亲近度，演绎产出的 delta 会落在这里 */
+    value: number;
+}
+
+/** 世界内消息（私聊/群聊通用）。fromId 可以是成员 charId 或 NPC id。 */
+export interface WorldChatMessage {
+    id: string;
+    fromId: string;
+    fromName: string;
+    text: string;
+    /** 发出时的轮数与剧情时间（手机 UI 按轮分隔显示） */
+    round: number;
+    storyTime: string;
+    timestamp: number;
+}
+
+/**
+ * 世界内消息线程。这是"手机是真手机"的落点：
+ * A 先演绎时发出的私聊/群聊立刻落线程，B 后演绎时就能在自己的手机上下文里
+ * 看到并回应——消息跨角色、跨轮交替传递，而不是各自的独白。
+ */
+export interface WorldThread {
+    /** dm 线程 id = 'dm_' + 两个 charId 排序后拼接；群聊 = 'group_main' */
+    id: string;
+    kind: 'dm' | 'group';
+    /** 群聊名（dm 不用） */
+    name?: string;
+    memberIds: string[];
+    messages: WorldChatMessage[];
+}
+
+/** 大段正文的文风。 */
+export type WorldNarrativeStyle = 'warm' | 'inner' | 'drama' | 'breezy' | 'sitcom' | 'custom';
+
+/**
+ * 伏笔：角色这半天瞒下的事（timeline 里 shared=false 对应的内幕）。
+ * 躺在世界的伏笔栏里，用户可点击"引爆"——下一轮演绎时注入给被瞒者
+ * （你发现了…）与当事人（你瞒的事败露了…），生成冲突。
+ */
+export interface WorldSeed {
+    id: string;
+    charId: string;
+    charName: string;
+    /** 瞒下的事 */
+    text: string;
+    /** 瞒着谁（成员名；空数组 = 瞒着所有人） */
+    hideFrom: string[];
+    round: number;
+    storyTime: string;
+    /** pending=躺着 / armed=用户已点引爆，下一轮爆发 / resolved=已爆发 */
+    status: 'pending' | 'armed' | 'resolved';
+}
+
+/**
+ * 用户对某角色"内心冲动"的决策/留言（想辞职？想告白？）。
+ * 下一轮演绎时以"内心的声音"注入该角色（light 模式下会联想到 user），注入后消费掉。
+ */
+export interface WorldDirective {
+    id: string;
+    charId: string;
+    /** 冲动原文（注入时引用） */
+    impulseText: string;
+    /** 用户的意见 */
+    text: string;
+    createdRound: number;
+}
+
+/** 一个"世界"的完整定义（IndexedDB worlds 表）。 */
+export interface WorldProfile {
+    id: string;
+    name: string;
+    /** 世界观总述（这个世界是什么样的，发生在哪，大家以什么身份生活） */
+    worldview: string;
+    mode: WorldHomeMode;
+    /** 时间模式（创建时选定，默认 real 真实时间；旧世界无此字段时按 real 处理） */
+    timeMode?: WorldTimeMode;
+    /** sim 模式的起始日期（不设时按创建当天） */
+    simStartDate?: WorldSimDate;
+    /** real 模式：世界已演到的「现实段」（早/中/晚跟着真实时钟走）。dayKey=YYYY-MM-DD，seg=0早/1中/2晚。
+     *  只能补当天错过的段，过了今天就补不了；未演过时为空。 */
+    realClock?: { dayKey: string; seg: number };
+    /** sim 模式：已被卷入章节总结的剧情时钟数（round ≤ 此值的原文已归档，不再喂原文） */
+    simSummarizedClock?: number;
+    /** sim 模式：每 20 天结一卷的章节总结（按 index 升序累积；最新一卷参与下一卷的上文喂养） */
+    chapters?: WorldChapter[];
+    /** 大段正文的文风（默认 warm 细腻日常） */
+    narrativeStyle?: WorldNarrativeStyle;
+    /** narrativeStyle='custom' 时的自定义文风提示词 */
+    narrativeStyleCustom?: string;
+    /** 大段正文的叙述人称：first=第一人称(我) / second=第二人称(你) / third=第三人称(名字/ta)。默认 first */
+    narrationPerson?: 'first' | 'second' | 'third';
+    /** 参与的角色（CharacterProfile.id） */
+    memberIds: string[];
+    npcs: WorldNPC[];
+    houses: WorldHouse[];
+    relationships: WorldRelationship[];
+    /** 世界内消息线程（私聊 + 世界群聊），随演绎累积，每线程截留最近若干条 */
+    threads?: WorldThread[];
+    /** 伏笔栏 */
+    seeds?: WorldSeed[];
+    /** 待注入的用户决策（消费后移除） */
+    directives?: WorldDirective[];
+    /** 社交动态的互动：key = `${round}_${charId}_${postIdx}`，值含点赞数 + 评论（NPC/路人）。 */
+    feedReactions?: Record<string, { likes: number; comments: { from: string; text: string }[] }>;
+    /** 每天离线 tick 的时段（早/午/晚），空数组 = 仅手动观测推进 */
+    offlineTickSlots?: ('morning' | 'noon' | 'evening')[];
+    /** 剧情时钟：累计推进的半天数（0 = 第1天白天） */
+    storyClock: number;
+    /** 生成内容是否注入各成员的 1v1 聊天（默认 true） */
+    injectToChat?: boolean;
+    /** 该世界专属 API 覆盖；不设则回落全局 apiConfig */
+    api?: { baseUrl: string; apiKey: string; model: string };
+    createdAt: number;
+    updatedAt: number;
+}
+
+/** 一轮演绎中单个角色的产出（一次独立 LLM 调用，确保没人开上帝视角）。 */
+export interface WorldCharBeat {
+    charId: string;
+    charName: string;
+    /** 角色根据环境自判定的主要位置 */
+    location: string;
+    /** 大段正文：聚焦一件有意义的事/一次内心拉扯（按世界设定的文风），私人视角，不外传 */
+    narrative: string;
+    /** 心情（一两个词） */
+    mood: string;
+    /** 数值面板（体力/心情值/自定义键） */
+    statusPanel?: Record<string, number | string>;
+    /**
+     * 这半天的具体时间轴。shared=false 的条目是角色想瞒着的——
+     * 不会传递给其他角色，并会被提炼进伏笔栏（secrets）。
+     */
+    timeline?: { time: string; place: string; event: string; shared: boolean }[];
+    /** 备忘录（完全私人：只有本人和屏幕外的用户看得到） */
+    memo?: string[];
+    /** 状态背后的冲动/待决策（想辞职/想告白…），用户可以帮忙拿主意 */
+    impulse?: { text: string; options?: string[] };
+    /** 瞒下的事（→ 伏笔栏）。hideFrom 空数组 = 瞒所有人 */
+    secrets?: { text: string; hideFrom?: string[] }[];
+    /** 手机内容（dms/group 会立刻落进 world.threads，链内后续角色与下一轮都能收到） */
+    phone?: {
+        posts?: string[];
+        dms?: { to: string; lines: string[] }[];
+        /** 发到世界群聊的话 */
+        group?: string[];
+    };
+    /** 共处时当面对在场成员说的话（不是手机）——对话对象的演绎轮里会完整听到并被要求回应 */
+    dialogues?: { with: string; lines: string[] }[];
+    /** 本轮产出的关系变化（按名字回填到 world.relationships）。newLabel：仅在关系重大转折时，
+     *  角色对这段关系的新看法/称呼（覆盖 label，平时不给）。 */
+    relationshipDeltas?: { withName: string; delta: number; reason?: string; newLabel?: string }[];
+}
+
+/** 一轮演绎（"观测"或离线 tick 触发，推进半天剧情时间；IndexedDB world_episodes 表）。 */
+export interface WorldEpisode {
+    id: string;
+    worldId: string;
+    /** 第几轮（= 演绎完成后的 storyClock） */
+    round: number;
+    /** 剧情时间标签（第N天 白天/夜晚） */
+    storyTime: string;
+    trigger: 'observe' | 'tick';
+    /** NPC 群像（一次调用全部 NPC） */
+    npcScene?: string;
+    /** NPC 留下的、可被下一轮角色接住的事件钩子 */
+    npcHooks?: string[];
+    beats: WorldCharBeat[];
+    /** 本轮没演出来（LLM 调用/解析失败）的成员 charId——UI 提示用户可重 roll */
+    failedCharIds?: string[];
+    /** 机械拼接的本轮梗概，喂给下一轮做连续性 */
+    summary: string;
+    createdAt: number;
+}
+
+/**
+ * sim（模拟时间）模式下每 20 天结的一卷「章节总结」。
+ *
+ * 喂养路径（同样严格防上帝视角）：
+ *   - synopsis / relationshipEval：全知小说体梗概，**只给屏幕外的用户看**（图一乐），绝不喂角色。
+ *   - atmosphere：这一卷沉淀下来的氛围基调，可喂给所有角色（不含隐私）。
+ *   - perspectives[charId]：每个角色「单方面视角」的回顾——只含 ta 知道/经历的，
+ *     往后单独喂回对应角色，作为 ta 对这 20 天的记忆。
+ *   - lastDayBeats：每个角色这一卷最后一天的 beat，连同其单视角总结作为下一卷的上文。
+ */
+export interface WorldChapter {
+    id: string;
+    worldId: string;
+    /** 第几卷（1 起） */
+    index: number;
+    /** 覆盖的剧情时钟区间（含） */
+    fromClock: number;
+    toClock: number;
+    /** 区间起止的时间文本（sim 模式是日期） */
+    fromLabel: string;
+    toLabel: string;
+    /** 全知小说体梗概（给用户看，含人物关系动态走向与评价） */
+    synopsis: string;
+    /** 关系网这一卷的走向评价 */
+    relationshipEval?: string;
+    /** 这一卷沉淀的氛围基调（影响下一卷，喂给所有角色） */
+    atmosphere?: string;
+    /** 每个角色的单方面视角总结（分开喂回各自） */
+    perspectives: { charId: string; charName: string; text: string }[];
+    /** 每个角色这一卷最后一天的 beat（作为下一卷上文） */
+    lastDayBeats: WorldCharBeat[];
+    createdAt: number;
+}
+
+/** 注入聊天的 world_card 消息的 metadata 结构。 */
+export interface WorldCardMeta {
+    worldCard: true;
+    worldId: string;
+    worldName: string;
+    mode: WorldHomeMode;
+    round: number;
+    storyTime: string;
+    location?: string;
+    mood?: string;
+    narrative?: string;
+    statusPanel?: Record<string, number | string>;
+    timeline?: { time: string; place: string; event: string; shared: boolean }[];
+    memo?: string[];
+    impulse?: { text: string; options?: string[] };
+    phonePosts?: string[];
+    /** 发到世界群聊的话 */
+    phoneGroup?: string[];
+}
+
+/** 邮局：一封信收到的回复（留档用）。 */
+export interface VRLetterReply {
+    pen: string;
+    content: string;
+    createdAt: number;
+}
+
+/**
+ * 邮局信件（本地存档 + 队列）。
+ * box='outbox'：我方角色写的漂流信（待寄出→已寄出→收到回复留档）。
+ * box='inbox' ：从别的用户那抽到的信（待回信→待发送回信→已发送）。
+ */
+export interface VRLetter {
+    id: string;                 // 本地 id
+    box: 'outbox' | 'inbox';
+    pen: string;                // 笔名（写信角色名 / 远端寄信方笔名）
+    content: string;
+    createdAt: number;
+    charId?: string;            // 写这封信/回信的角色
+
+    // outbox
+    status?: 'queued' | 'sent' | 'archived' | 'sealed';  // 待寄出 / 已寄出 / 收到回复留档 / 角色已读并封存
+    remoteId?: string;          // 寄出后服务端分配的远端 id
+    released?: boolean;         // 作者已「停止传播」：后端已删、退出公共池，本地仍留档
+    sentAt?: number;
+    repliesReceived?: VRLetterReply[];
+    /** 原作者角色读过回信后的感触（写完即封存，使命完成） */
+    reaction?: { content: string; createdAt: number };
+
+    // inbox
+    remoteLetterId?: string;    // 远端信 id（回信时用）
+    replyStatus?: 'none' | 'queued' | 'sent'; // 未回 / 待发送回信 / 已发送
+    reply?: { charId: string; pen: string; content: string; createdAt: number; userNote?: string };
+    fetchedAt?: number;
+
+    // 互动热度缓存（服务端为准；UI 即时反馈用）
+    likes?: number;             // 点赞数
+    dislikes?: number;          // 点踩(=举报)数
+    views?: number;             // 被抽到/浏览次数
+    myVote?: 1 | -1 | 0;        // 我对这封信的投票（inbox 抽到的信）
+}
+
+/** 听歌房队列项。 */
+export interface VRMusicQueueItem {
+    song: CharPlaylistSong;
+    charId: string;
+    charName: string;
+}
+
+/** 留言簿（共享版聊墙）的一条留言。 */
+export interface VRGuestbookMessage {
+    id: string;
+    /** 'user' = 用户本人，其余为 charId */
+    authorId: string;
+    authorName: string;
+    content: string;
+    /** 若是回复某条留言 */
+    replyToId?: string;
+    replyToName?: string;
+    createdAt: number;
+}
+
+/** 留言簿共享状态（单例，所有角色 + 用户共用一面墙）。 */
+export interface VRGuestbookState {
+    id: string; // 'board' 单例
+    messages: VRGuestbookMessage[];
+    updatedAt: number;
+}
+
+/** 听歌房共享状态（单例，所有角色共用一个循环队列）。 */
+export interface VRMusicRoomState {
+    id: string; // 'state' 单例
+    nowPlaying?: {
+        song: CharPlaylistSong;
+        charId: string;
+        charName: string;
+        /** 选曲心境/理由 */
+        vibe?: string;
+        since: number;
+    };
+    queue: VRMusicQueueItem[];
+    updatedAt: number;
+}
+
+// ============ 剧院 / 话剧部门 ============
+
+/** 剧本里的一个登场角色（名字 + 大致性格，供选角匹配/演绎用）。 */
+export interface VRPlayRole {
+    name: string;
+    persona: string;
+}
+
+/** 一份投稿剧本（角色创作 / 用户写 / LLM 代写 / 上传）。 */
+export interface VRScript {
+    id: string;
+    title: string;
+    /** 一句话简介（"创作了关于 xxx 的舞台剧"用） */
+    logline: string;
+    roles: VRPlayRole[];
+    /** 完整剧本正文（固定格式：幕/场 + 角色台词 + （旁白）） */
+    body: string;
+    /** 作者 id：'user' | charId | 'llm' */
+    authorId: string;
+    authorName: string;
+    source: 'char' | 'user' | 'llm' | 'upload';
+    createdAt: number;
+}
+
+/** 编排时的 LLM 调用模式：逐角色各调一次（精准，N 次）/ 固定两次（省，可能 OOC）。 */
+export type VRStageMode = 'per-role' | 'two-call';
+
+/** 选角：剧本角色 → 演员（char 或 临时 NPC）。 */
+export interface VRCastAssign {
+    roleName: string;
+    actorId: string;   // charId | npc_xxx
+    actorName: string;
+    isNpc: boolean;
+    /** NPC 的捏脸立绘（透明 PNG dataUrl） */
+    npcChibi?: string;
+}
+
+/** 某演员读完剧本后给导演的意见（吐槽 / 改台词动作 / 配不配合）。 */
+export interface VRActorNote {
+    actorId: string;
+    actorName: string;
+    roleName: string;
+    /** 一句吐槽 / 想法（UI 展示） */
+    note: string;
+    /** 角色按自己本色重写过的"我这部分台词 / 怎么演"（可空 = 照原本演） */
+    lines?: string;
+    /** 绝对禁忌：导演绝不能让该角色做的事（硬红线，可空） */
+    taboo?: string;
+    /** 给导演的写作指导（这条线该怎么处理，可空） */
+    direction?: string;
+    /** 态度光谱：欣然 / 配合 / 勉强 / 隐忍 / 抵触 / 拒演（按角色性子自然落点，不必都硬刚） */
+    attitude?: string;
+    /** 是否配合（由 attitude 推导：抵触/拒演 = false） */
+    cooperative: boolean;
+}
+
+/** 最终演出脚本的一拍（台词气泡 / 旁白 / 上场 / 下场）。 */
+export interface VRStageLine {
+    kind: 'line' | 'narration' | 'enter' | 'exit';
+    /** line/enter/exit 时是谁 */
+    actorName?: string;
+    /** 台词气泡内容 / 旁白文字 */
+    text: string;
+}
+
+/** 一场已收录的演出（导演整合后的成品 + 观众锐评 + 评级）。 */
+export interface VRStagedPlay {
+    id: string;
+    scriptId: string;
+    title: string;
+    logline: string;
+    cast: VRCastAssign[];
+    notes: VRActorNote[];
+    /** 导演整合后的可演出脚本 */
+    stage: VRStageLine[];
+    /** 赛博观众锐评 */
+    reviews: { critic: string; text: string }[];
+    /** 评级（如 S / A / ★★★★☆） */
+    rating: string;
+    createdAt: number;
+}
+
+/**
+ * 捏脸系统自定义部件（开发模式追加）。运行时由 CreatorIframe 读出，随 like520_init
+ * 以 extraItems 注入捏人器，合并进对应类目的 PARTS。520 / 彼方 都会拿到。
+ */
+export interface CustomCreatorPart {
+    id: string;
+    /** 归属类目 key（如 skin / fronthair / outfit …，须与捏人器 PARTS 的 key 对应） */
+    categoryKey: string;
+    /** 面板里显示的名字 */
+    name: string;
+    /** 部件图（透明 PNG 的 data URL，须与捏人器画布同尺寸/同锚点） */
+    src: string;
+    /** 是否可被换色（对应 item.tintable） */
+    tintable?: boolean;
+    createdAt: number;
 }
 
 // --- SONGWRITING APP TYPES ---
@@ -582,55 +1218,55 @@ export type SongMood = 'happy' | 'sad' | 'romantic' | 'angry' | 'chill' | 'epic'
 export type SongGenre = 'pop' | 'rock' | 'ballad' | 'rap' | 'folk' | 'electronic' | 'jazz' | 'rnb' | 'free';
 
 export interface SongLine {
-  id: string;
-  authorId: string; // 'user' or charId
-  content: string;
-  section: 'intro' | 'verse' | 'pre-chorus' | 'chorus' | 'bridge' | 'outro' | 'free';
-  annotation?: string; // AI guidance note on this line
-  timestamp: number;
-  isDraft?: boolean; // true = not selected as final lyrics, kept as draft record
+    id: string;
+    authorId: string; // 'user' or charId
+    content: string;
+    section: 'intro' | 'verse' | 'pre-chorus' | 'chorus' | 'bridge' | 'outro' | 'free';
+    annotation?: string; // AI guidance note on this line
+    timestamp: number;
+    isDraft?: boolean; // true = not selected as final lyrics, kept as draft record
 }
 
 export interface SongComment {
-  id: string;
-  authorId: string; // charId
-  type: 'guidance' | 'praise' | 'suggestion' | 'teaching' | 'reaction';
-  content: string;
-  targetLineId?: string; // which line this comment is about
-  timestamp: number;
+    id: string;
+    authorId: string; // charId
+    type: 'guidance' | 'praise' | 'suggestion' | 'teaching' | 'reaction';
+    content: string;
+    targetLineId?: string; // which line this comment is about
+    timestamp: number;
 }
 
 export interface ChordInfo {
-  root: string;       // e.g. 'C', 'D', 'Ab'
-  quality: string;    // e.g. 'maj', 'min', '7', 'maj7', 'sus4'
-  display: string;    // e.g. 'C', 'Am', 'G7', 'Fmaj7'
-  midi: number;       // root note MIDI number (for audio)
+    root: string;       // e.g. 'C', 'D', 'Ab'
+    quality: string;    // e.g. 'maj', 'min', '7', 'maj7', 'sus4'
+    display: string;    // e.g. 'C', 'Am', 'G7', 'Fmaj7'
+    midi: number;       // root note MIDI number (for audio)
 }
 
 export interface MelodyNote {
-  midi: number;       // MIDI note number
-  duration: number;   // in beats
-  vowel: number;      // index into vowel formant table (0=a,1=o,2=e,3=i,4=u)
+    midi: number;       // MIDI note number
+    duration: number;   // in beats
+    vowel: number;      // index into vowel formant table (0=a,1=o,2=e,3=i,4=u)
 }
 
 export interface SectionArrangement {
-  section: string;            // matches SongLine.section
-  chords: ChordInfo[];        // one chord per line in this section
-  melodies?: MelodyNote[][];  // melodies[lineIdx] = notes for that line
+    section: string;            // matches SongLine.section
+    chords: ChordInfo[];        // one chord per line in this section
+    melodies?: MelodyNote[][];  // melodies[lineIdx] = notes for that line
 }
 
 export interface SongArrangement {
-  rootNote: string;           // e.g. 'C', 'A'
-  scale: 'major' | 'minor';
-  bpm: number;
-  sections: SectionArrangement[];
-  instruments: {
-    piano: boolean;
-    bass: boolean;
-    drums: boolean;
-    melody: boolean;
-  };
-  drumPattern: 'basic' | 'upbeat' | 'halftime' | 'shuffle';
+    rootNote: string;           // e.g. 'C', 'A'
+    scale: 'major' | 'minor';
+    bpm: number;
+    sections: SectionArrangement[];
+    instruments: {
+        piano: boolean;
+        bass: boolean;
+        drums: boolean;
+        melody: boolean;
+    };
+    drumPattern: 'basic' | 'upbeat' | 'halftime' | 'shuffle';
 }
 
 // Provider identifier for AI-generated audio. Each one has its own pricing
@@ -644,210 +1280,210 @@ export type MusicProvider = 'minimax-free' | 'minimax-paid' | 'ace-step';
 // Audio blob lives in the IndexedDB assets store keyed by `assetKey`,
 // so the sheet itself stays small and JSON-serializable for sync/export.
 export interface SongAudio {
-  assetKey: string;          // DB.getAssetRaw / saveAssetRaw key
-  mimeType: string;          // e.g. "audio/mpeg", "audio/wav"
-  durationSec?: number;
-  generatedAt: number;
-  provider: MusicProvider;
-  // Snapshot of the inputs used so we can show "regenerate when lyrics changed"
-  promptHash: string;
-  tagsUsed: string;
-  lyricsLineCount: number;
+    assetKey: string;          // DB.getAssetRaw / saveAssetRaw key
+    mimeType: string;          // e.g. "audio/mpeg", "audio/wav"
+    durationSec?: number;
+    generatedAt: number;
+    provider: MusicProvider;
+    // Snapshot of the inputs used so we can show "regenerate when lyrics changed"
+    promptHash: string;
+    tagsUsed: string;
+    lyricsLineCount: number;
 }
 
 export interface SongSheet {
-  id: string;
-  title: string;
-  subtitle?: string;
-  genre: SongGenre;
-  mood: SongMood;
-  bpm?: number;
-  key?: string; // e.g. "C major", "A minor"
-  collaboratorId: string; // the character guiding the user
-  lines: SongLine[];
-  comments: SongComment[];
-  status: 'draft' | 'completed';
-  coverStyle: string; // gradient/color identifier
-  createdAt: number;
-  lastActiveAt: number;
-  completedAt?: number;
-  arrangement?: SongArrangement;
-  audio?: SongAudio;
-  // Custom style prompt — when set, overrides the preset/genre/mood-derived tags.
-  // Plain comma-separated English string the user (or LLM helper) authored.
-  // Reused by both ACE-Step (`tags` field) and MiniMax music (`prompt` field).
-  aceStepCustomTags?: string;
-  // Last-used music provider for this song — drives the modal's default selection.
-  musicProvider?: MusicProvider;
-  // Lyric structure template chosen at creation. Drives the structure-guide
-  // banner shown in the write view so user/char don't write randomly.
-  lyricTemplate?: string;
+    id: string;
+    title: string;
+    subtitle?: string;
+    genre: SongGenre;
+    mood: SongMood;
+    bpm?: number;
+    key?: string; // e.g. "C major", "A minor"
+    collaboratorId: string; // the character guiding the user
+    lines: SongLine[];
+    comments: SongComment[];
+    status: 'draft' | 'completed';
+    coverStyle: string; // gradient/color identifier
+    createdAt: number;
+    lastActiveAt: number;
+    completedAt?: number;
+    arrangement?: SongArrangement;
+    audio?: SongAudio;
+    // Custom style prompt — when set, overrides the preset/genre/mood-derived tags.
+    // Plain comma-separated English string the user (or LLM helper) authored.
+    // Reused by both ACE-Step (`tags` field) and MiniMax music (`prompt` field).
+    aceStepCustomTags?: string;
+    // Last-used music provider for this song — drives the modal's default selection.
+    musicProvider?: MusicProvider;
+    // Lyric structure template chosen at creation. Drives the structure-guide
+    // banner shown in the write view so user/char don't write randomly.
+    lyricTemplate?: string;
 }
 
 // --- DATE APP TYPES ---
 export interface DialogueItem {
-  text: string;
-  emotion?: string;
+    text: string;
+    emotion?: string;
 }
 
 export interface DateState {
-  dialogueQueue: DialogueItem[];
-  dialogueBatch: DialogueItem[];
-  currentText: string;
-  bgImage: string;
-  currentSprite: string;
-  isNovelMode: boolean;
-  timestamp: number;
-  peekStatus: string;
+    dialogueQueue: DialogueItem[];
+    dialogueBatch: DialogueItem[];
+    currentText: string;
+    bgImage: string;
+    currentSprite: string;
+    isNovelMode: boolean;
+    timestamp: number;
+    peekStatus: string; 
 }
 
 
 export interface SpecialMomentRecord {
-  content: string;
-  image?: string; // base64 PNG (stored separately so export tools can handle it)
-  timestamp: number;
-  source?: 'generated' | 'migrated';
-  /** Free-form per-event extra data (e.g. like520 captureface state, anchors, etc.) */
-  customData?: Record<string, any>;
+    content: string;
+    image?: string; // base64 PNG (stored separately so export tools can handle it)
+    timestamp: number;
+    source?: 'generated' | 'migrated';
+    /** Free-form per-event extra data (e.g. like520 captureface state, anchors, etc.) */
+    customData?: Record<string, any>;
 }
 
 // --- BANK / SHOP GAME TYPES (NEW) ---
 export interface BankTransaction {
-  id: string;
-  amount: number;
-  category: string;
-  note: string;
-  timestamp: number;
-  dateStr: string; // YYYY-MM-DD
+    id: string;
+    amount: number;
+    category: string; 
+    note: string;
+    timestamp: number;
+    dateStr: string; // YYYY-MM-DD
 }
 
 export interface SavingsGoal {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  icon: string;
-  isCompleted: boolean;
+    id: string;
+    name: string;
+    targetAmount: number;
+    currentAmount: number; 
+    icon: string;
+    isCompleted: boolean;
 }
 
 export interface ShopStaff {
-  id: string;
-  name: string;
-  avatar: string; // Emoji or URL
-  role: 'manager' | 'waiter' | 'chef';
-  fatigue: number; // 0-100, >80 stops working
-  maxFatigue: number;
-  hireDate: number;
-  personality?: string; // New: Custom personality
-  x?: number; // New: Position X (0-100)
-  y?: number; // New: Position Y (0-100)
-  // Pet System
-  ownerCharId?: string; // If set, this staff is a "pet" belonging to this character
-  isPet?: boolean; // Flag to indicate this is a pet
-  scale?: number; // Display scale (0.4-2)
+    id: string;
+    name: string;
+    avatar: string; // Emoji or URL
+    role: 'manager' | 'waiter' | 'chef';
+    fatigue: number; // 0-100, >80 stops working
+    maxFatigue: number;
+    hireDate: number;
+    personality?: string; // New: Custom personality
+    x?: number; // New: Position X (0-100)
+    y?: number; // New: Position Y (0-100)
+    // Pet System
+    ownerCharId?: string; // If set, this staff is a "pet" belonging to this character
+    isPet?: boolean; // Flag to indicate this is a pet
+    scale?: number; // Display scale (0.4-2)
 }
 
 export interface ShopRecipe {
-  id: string;
-  name: string;
-  icon: string;
-  cost: number; // AP cost to unlock
-  appeal: number; // Contribution to shop appeal
-  isUnlocked: boolean;
+    id: string;
+    name: string;
+    icon: string;
+    cost: number; // AP cost to unlock
+    appeal: number; // Contribution to shop appeal
+    isUnlocked: boolean;
 }
 
 export interface BankConfig {
-  dailyBudget: number;
-  currencySymbol: string;
+    dailyBudget: number;
+    currencySymbol: string;
 }
 
 export interface BankGuestbookItem {
-  id: string;
-  authorName: string;
-  avatar?: string;
-  content: string;
-  isChar: boolean;
-  charId?: string;
-  timestamp: number;
-  systemMessageId?: number; // Linked system message ID for deletion
+    id: string;
+    authorName: string;
+    avatar?: string;
+    content: string;
+    isChar: boolean;
+    charId?: string;
+    timestamp: number;
+    systemMessageId?: number; // Linked system message ID for deletion
 }
 
 // --- DOLLHOUSE / ROOM DECORATION TYPES ---
 export interface DollhouseSticker {
-  id: string;
-  url: string;       // image URL or emoji
-  x: number;         // % position within the surface
-  y: number;
-  scale: number;
-  rotation: number;
-  zIndex: number;
-  surface: 'floor' | 'leftWall' | 'rightWall';
+    id: string;
+    url: string;       // image URL or emoji
+    x: number;         // % position within the surface
+    y: number;
+    scale: number;
+    rotation: number;
+    zIndex: number;
+    surface: 'floor' | 'leftWall' | 'rightWall';
 }
 
 export interface DollhouseRoom {
-  id: string;
-  name: string;
-  floor: number;         // 0 = ground floor, 1 = second floor
-  position: 'left' | 'right';
-  isUnlocked: boolean;
-  layoutId: string;      // references a RoomLayout template
-  wallpaperLeft?: string;  // CSS gradient or image URL
-  wallpaperRight?: string;
-  floorStyle?: string;     // CSS gradient or image URL
-  roomTextureUrl?: string; // optional full-room overlay image
-  roomTextureScale?: number;
-  stickers: DollhouseSticker[];
-  staffIds: string[];      // staff assigned to this room
+    id: string;
+    name: string;
+    floor: number;         // 0 = ground floor, 1 = second floor
+    position: 'left' | 'right';
+    isUnlocked: boolean;
+    layoutId: string;      // references a RoomLayout template
+    wallpaperLeft?: string;  // CSS gradient or image URL
+    wallpaperRight?: string;
+    floorStyle?: string;     // CSS gradient or image URL
+    roomTextureUrl?: string; // optional full-room overlay image
+    roomTextureScale?: number;
+    stickers: DollhouseSticker[];
+    staffIds: string[];      // staff assigned to this room
 }
 
 export interface RoomLayout {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  apCost: number;
-  floorWidthRatio: number;   // relative width (0-1)
-  floorDepthRatio: number;   // relative depth (0-1)
-  hasCounter: boolean;
-  hasWindow: boolean;
+    id: string;
+    name: string;
+    icon: string;
+    description: string;
+    apCost: number;
+    floorWidthRatio: number;   // relative width (0-1)
+    floorDepthRatio: number;   // relative depth (0-1)
+    hasCounter: boolean;
+    hasWindow: boolean;
 }
 
 export interface DollhouseState {
-  rooms: DollhouseRoom[];
-  activeRoomId: string | null;   // currently zoomed-in room
-  selectedLayoutId?: string;
+    rooms: DollhouseRoom[];
+    activeRoomId: string | null;   // currently zoomed-in room
+    selectedLayoutId?: string;
 }
 
 export interface BankShopState {
-  actionPoints: number;
-  shopName: string;
-  shopLevel: number;
-  appeal: number; // Total Appeal
-  background: string; // Custom BG
-  staff: ShopStaff[];
-  unlockedRecipes: string[]; // IDs
-  activeVisitor?: {
-    charId: string;
-    message: string;
-    timestamp: number;
-    giftAp?: number; // Optional gift from visitor
-    roomId?: string;
-    x?: number;
-    y?: number;
-    scale?: number;
-  };
-  guestbook?: BankGuestbookItem[];
-  dollhouse?: DollhouseState;
+    actionPoints: number;
+    shopName: string;
+    shopLevel: number;
+    appeal: number; // Total Appeal
+    background: string; // Custom BG
+    staff: ShopStaff[];
+    unlockedRecipes: string[]; // IDs
+    activeVisitor?: {
+        charId: string;
+        message: string;
+        timestamp: number;
+        giftAp?: number; // Optional gift from visitor
+        roomId?: string;
+        x?: number;
+        y?: number;
+        scale?: number;
+    };
+    guestbook?: BankGuestbookItem[];
+    dollhouse?: DollhouseState;
 }
 
 export interface BankFullState {
-  config: BankConfig;
-  shop: BankShopState;
-  goals: SavingsGoal[];
-  firedStaff?: ShopStaff[]; // Fired staff pool: can rehire or permanently delete
-  todaySpent: number;
-  lastLoginDate: string;
-  dataVersion?: number; // Migration version tracker (undefined = v0/v1 legacy)
+    config: BankConfig;
+    shop: BankShopState;
+    goals: SavingsGoal[];
+    firedStaff?: ShopStaff[]; // Fired staff pool: can rehire or permanently delete
+    todaySpent: number;
+    lastLoginDate: string;
+    dataVersion?: number; // Migration version tracker (undefined = v0/v1 legacy)
 }
 // ---------------------------------
 
@@ -855,86 +1491,86 @@ export interface BankFullState {
 
 /** 角色本地歌单里的轻量歌曲快照 — 字段与 MusicContext 的 Song 对齐（无运行时 url） */
 export interface CharPlaylistSong {
-  id: number;
-  name: string;
-  artists: string;
-  album: string;
-  albumPic: string;
-  duration: number;
-  fee: number;
-  /**
-   * 'user' = 这首是从 user 那里"抄"过来的（user 在听 → char 加进自己歌单）。
-   * 'discovered' = char 自己探索 / 初始化时找到的。
-   * 不写默认按 'discovered' 处理（向后兼容已有数据）。
-   * 用途：当 char 后续"在听"这首时，prompt 会告诉 LLM "这是从 user 那儿收来的"，
-   * 让记忆/对话能自然带上这层关系，而不是当成一首中立的歌。
-   */
-  source?: 'user' | 'discovered';
-  /** 加入歌单时间，用来排序 / 显示"最近收藏" */
-  addedAt?: number;
+    id: number;
+    name: string;
+    artists: string;
+    album: string;
+    albumPic: string;
+    duration: number;
+    fee: number;
+    /**
+     * 'user' = 这首是从 user 那里"抄"过来的（user 在听 → char 加进自己歌单）。
+     * 'discovered' = char 自己探索 / 初始化时找到的。
+     * 不写默认按 'discovered' 处理（向后兼容已有数据）。
+     * 用途：当 char 后续"在听"这首时，prompt 会告诉 LLM "这是从 user 那儿收来的"，
+     * 让记忆/对话能自然带上这层关系，而不是当成一首中立的歌。
+     */
+    source?: 'user' | 'discovered';
+    /** 加入歌单时间，用来排序 / 显示"最近收藏" */
+    addedAt?: number;
 }
 
 export interface CharPlaylist {
-  id: string;                 // 本地 id (不与网易云 playlistId 冲突)
-  title: string;
-  description: string;        // 角色自己写的歌单简介
-  coverStyle: string;         // 渐变色标识 or 第一首歌封面
-  songs: CharPlaylistSong[];
-  mood?: SongMood;
-  createdAt: number;
-  updatedAt: number;
+    id: string;                 // 本地 id (不与网易云 playlistId 冲突)
+    title: string;
+    description: string;        // 角色自己写的歌单简介
+    coverStyle: string;         // 渐变色标识 or 第一首歌封面
+    songs: CharPlaylistSong[];
+    mood?: SongMood;
+    createdAt: number;
+    updatedAt: number;
 }
 
 export interface CharPlayRecord {
-  song: CharPlaylistSong;
-  at: number;                 // 播放时间戳（真实时间）
-  context?: string;           // 该时刻的心境备注，如 "失眠的时候"
+    song: CharPlaylistSong;
+    at: number;                 // 播放时间戳（真实时间）
+    context?: string;           // 该时刻的心境备注，如 "失眠的时候"
 }
 
 export interface CharMusicReview {
-  id: string;
-  targetType: 'song' | 'user_playlist' | 'user_record';
-  targetId: string;           // songId or playlistId as string
-  targetTitle: string;        // 歌名 / 歌单名
-  content: string;            // 评论正文
-  createdAt: number;
+    id: string;
+    targetType: 'song' | 'user_playlist' | 'user_record';
+    targetId: string;           // songId or playlistId as string
+    targetTitle: string;        // 歌名 / 歌单名
+    content: string;            // 评论正文
+    createdAt: number;
 }
 
 /** 运行时"此刻在听" — 根据 Schedule 决定，不必持久化（可以随时 recompute） */
 export interface CharCurrentListening {
-  songId: number;
-  songName: string;
-  artists: string;
-  albumPic: string;
-  /** 心境 / 选曲理由（来自 slot.innerThought 或 description） */
-  vibe?: string;
-  startedAt: number;
+    songId: number;
+    songName: string;
+    artists: string;
+    albumPic: string;
+    /** 心境 / 选曲理由（来自 slot.innerThought 或 description） */
+    vibe?: string;
+    startedAt: number;
 }
 
 export interface CharMusicProfile {
-  /** 音乐品味简介（LLM 初始化生成） */
-  bio: string;
-  /** 曲风标签（可随听歌演化） */
-  genreTags: string[];
-  /** 偏爱的艺人 */
-  signatureArtists: { name: string; artistId?: number }[];
-  /** 本地歌单列表 */
-  playlists: CharPlaylist[];
-  /** 仿 likelist */
-  likedSongIds: number[];
-  /** 最近在听（仿 user/record） */
-  recentPlays: CharPlayRecord[];
-  /** 私人 FM 关键词种子（留给未来做 char FM） */
-  fmSeed?: string;
-  /** 角色对歌/user 歌单的点评 */
-  reviews?: CharMusicReview[];
-  /** 此刻在听（Schedule 运行时填充，UI 展示用） */
-  currentListening?: CharCurrentListening;
-  /** 是否允许 char 读取 user 的网易云数据（默认 true） */
-  canReadUserMusic?: boolean;
-  /** 初始化时间 */
-  initializedAt?: number;
-  updatedAt: number;
+    /** 音乐品味简介（LLM 初始化生成） */
+    bio: string;
+    /** 曲风标签（可随听歌演化） */
+    genreTags: string[];
+    /** 偏爱的艺人 */
+    signatureArtists: { name: string; artistId?: number }[];
+    /** 本地歌单列表 */
+    playlists: CharPlaylist[];
+    /** 仿 likelist */
+    likedSongIds: number[];
+    /** 最近在听（仿 user/record） */
+    recentPlays: CharPlayRecord[];
+    /** 私人 FM 关键词种子（留给未来做 char FM） */
+    fmSeed?: string;
+    /** 角色对歌/user 歌单的点评 */
+    reviews?: CharMusicReview[];
+    /** 此刻在听（Schedule 运行时填充，UI 展示用） */
+    currentListening?: CharCurrentListening;
+    /** 是否允许 char 读取 user 的网易云数据（默认 true） */
+    canReadUserMusic?: boolean;
+    /** 初始化时间 */
+    initializedAt?: number;
+    updatedAt: number;
 }
 
 export interface CharacterProfile {
@@ -947,7 +1583,7 @@ export interface CharacterProfile {
   memories: MemoryFragment[];
   refinedMemories?: Record<string, string>;
   activeMemoryMonths?: string[];
-
+  
   writerPersona?: string;
   writerPersonaGeneratedAt?: number;
 
@@ -958,9 +1594,9 @@ export interface CharacterProfile {
   bubbleStyle?: string;
   chatBackground?: string;
   contextLimit?: number;
-  hideSystemLogs?: boolean;
-  hideBeforeMessageId?: number;
-
+  hideSystemLogs?: boolean; 
+  hideBeforeMessageId?: number; 
+  
   dateBackground?: string;
   sprites?: Record<string, string>;
   spriteConfig?: SpriteConfig;
@@ -968,6 +1604,7 @@ export interface CharacterProfile {
   dateLightReading?: boolean;   // Light reading mode for novel/text view in date
   dateSkinSets?: SkinSet[];     // Multiple skin sets for portrait mode
   activeSkinSetId?: string;     // Currently active skin set ID
+  dateStyleConfig?: DateStyleConfig; // 见面模式文风（写作风格 / 叙事人称 / 自定义补充）
 
   savedDateState?: DateState;
   specialMomentRecords?: Record<string, SpecialMomentRecord>;
@@ -976,45 +1613,50 @@ export interface CharacterProfile {
   xhsEnabled?: boolean;
 
   socialProfile?: {
-    handle: string;
-    bio?: string;
+      handle: string;
+      bio?: string;
   };
 
   roomConfig?: {
-    bgImage?: string;
-    wallImage?: string;
-    floorImage?: string;
-    items: RoomItem[];
-    wallScale?: number;
-    wallRepeat?: boolean;
-    floorScale?: number;
-    floorRepeat?: boolean;
+      bgImage?: string;
+      wallImage?: string;
+      floorImage?: string;
+      items: RoomItem[];
+      wallScale?: number; 
+      wallRepeat?: boolean; 
+      floorScale?: number;
+      floorRepeat?: boolean;
   };
-
+  
   // deprecated: per-character assets migrated to global room_custom_assets_list with assignedCharIds
 
   lastRoomDate?: string;
   savedRoomState?: RoomGeneratedState;
 
   phoneState?: {
-    records: PhoneEvidence[];
-    customApps?: PhoneCustomApp[];
+      records: PhoneEvidence[];
+      customApps?: PhoneCustomApp[]; 
   };
 
   voiceProfile?: {
-    provider?: 'minimax' | 'custom';
-    voiceId?: string;
-    voiceName?: string;
-    source?: 'system' | 'voice_cloning' | 'voice_generation' | 'custom';
-    model?: string;
-    notes?: string;
-    timberWeights?: { voice_id: string; weight: number }[];
-    voiceModify?: { pitch?: number; intensity?: number; timbre?: number; sound_effects?: string };
-    emotion?: string;
-    speed?: number;
-    vol?: number;
-    pitch?: number;
+      provider?: 'minimax' | 'custom';
+      voiceId?: string;
+      voiceName?: string;
+      source?: 'system' | 'voice_cloning' | 'voice_generation' | 'custom';
+      model?: string;
+      notes?: string;
+      timberWeights?: { voice_id: string; weight: number }[];
+      voiceModify?: { pitch?: number; intensity?: number; timbre?: number; sound_effects?: string };
+      emotion?: string;
+      speed?: number;
+      vol?: number;
+      pitch?: number;
   };
+
+  // 时间感知强化：开启（默认）时会向上下文注入「距离上次聊天已过去多久」的强化提示，
+  // 让角色强化时间观念、主动匹配现实世界时间。关掉后不再注入这组提示词
+  // （注意：历史消息本身仍带时间戳，关掉后弱化程度取决于模型自身理解）。
+  timeAwarenessEnabled?: boolean;
 
   // Chat & Date voice TTS settings
   chatVoiceEnabled?: boolean;
@@ -1100,6 +1742,8 @@ export interface CharacterProfile {
    */
   htmlModeEnabled?: boolean;
   htmlModeCustomPrompt?: string;
+  /** 该角色专属的聊天「白框」自定义 CSS（叠加在全局 osTheme.chatChromeCustomCss 之上）。 */
+  chromeCustomCss?: string;
 
   /**
    * 思考过程展示（per-character / 会话级）。
@@ -1127,82 +1771,117 @@ export interface CharacterProfile {
   };
   /** 用户追加的思考提示词（不替换原生，只在最后追加一段「用户额外要求」） */
   thinkingChainCustomPrompt?: string;
+
+  /**
+   * 虚拟世界「彼方」的个人状态：是否自主登入、登入间隔、各本小说的独立书签等。
+   * 独立于 proactiveConfig（主动发消息），互不挤占触发。
+   */
+  vrState?: VRWorldCharState;
 }
 
 export interface GroupProfile {
-  id: string;
-  name: string;
-  members: string[];
-  avatar?: string;
-  createdAt: number;
-  /**
-   * 私聊里"近期群活动"上下文从这个群最多取最后多少条消息。
-   * 不设默认 80。设大点能让活跃群更完整，设小点节省 token、避免某个活跃群把其他群挤掉。
-   */
-  privateContextCap?: number;
+    id: string;
+    name: string;
+    members: string[];
+    avatar?: string;
+    createdAt: number;
+    /**
+     * 私聊里"近期群活动"上下文从这个群最多取最后多少条消息。
+     * 不设默认 80。设大点能让活跃群更完整，设小点节省 token、避免某个活跃群把其他群挤掉。
+     */
+    privateContextCap?: number;
 }
 
 export interface CharacterExportData extends Omit<CharacterProfile, 'id' | 'memories' | 'refinedMemories' | 'activeMemoryMonths' | 'impression'> {
-  version: number;
-  type: 'sully_character_card';
-  embeddedTheme?: ChatTheme;
+    version: number;
+    type: 'sully_character_card';
+    embeddedTheme?: ChatTheme;
 }
 
 export interface UserProfile {
-  name: string;
-  avatar: string;
-  bio: string;
+    name: string;
+    avatar: string;
+    bio: string;
+    /**
+     * 用户本人接入「彼方」的状态：捏的 chibi、此刻所在房间、在干嘛。可随时改。
+     * enabled=false（登出）时，聊天里给角色的"用户在彼方"提示词随之消失。
+     */
+    vrState?: UserVRState;
+}
+
+export interface UserVRState {
+    /** 是否接入彼方（登出后不再向角色注入"用户在彼方"提示） */
+    enabled: boolean;
+    /** 用户此刻把自己挂在哪个房间 */
+    currentRoom?: VRRoomId;
+    /** 用户自己写的"在彼方干嘛"，会注入聊天提示词 + 广播成行为卡片 */
+    activity?: string;
+    /** 最近一次更新时间 */
+    updatedAt?: number;
+    /** 用户在彼方里的 chibi 形象（同角色 chibi 结构，来自 mode="user" 的捏人器） */
+    chibi?: {
+        img: string;
+        state?: any;
+        scale?: number;
+        offsetY?: number;
+        flip?: boolean;
+    };
 }
 
 export interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info';
+    id: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
 }
 
 export interface XhsStockImage {
-  id: string;
-  url: string;           // 图床URL (must be public https)
-  tags: string[];        // 标签 e.g. ['美食','咖啡','下午茶']
-  addedAt: number;       // timestamp
-  usedCount: number;     // 被使用次数
-  lastUsedAt?: number;   // 上次使用时间
+    id: string;
+    url: string;           // 图床URL (must be public https)
+    tags: string[];        // 标签 e.g. ['美食','咖啡','下午茶']
+    addedAt: number;       // timestamp
+    usedCount: number;     // 被使用次数
+    lastUsedAt?: number;   // 上次使用时间
 }
 
 export interface GalleryImage {
-  id: string;
-  charId: string;
-  url: string;
-  timestamp: number;
-  review?: string;
-  reviewTimestamp?: number;
-  savedDate?: string; // YYYY-MM-DD format
-  chatContext?: string[]; // Recent chat messages at time of save
+    id: string;
+    charId: string;
+    url: string;
+    timestamp: number;
+    review?: string;
+    reviewTimestamp?: number;
+    savedDate?: string; // YYYY-MM-DD format
+    chatContext?: string[]; // Recent chat messages at time of save
 }
 
 export interface StickerData {
-  id: string;
-  url: string;
-  x: number;
-  y: number;
-  rotation: number;
-  scale?: number;
+    id: string;
+    url: string;
+    x: number;
+    y: number;
+    rotation: number;
+    scale?: number; 
 }
 
 export interface DiaryPage {
-  text: string;
-  paperStyle: string;
-  stickers: StickerData[];
+    text: string;
+    paperStyle: string;
+    stickers: StickerData[];
 }
 
 export interface DiaryEntry {
-  id: string;
-  charId: string;
-  date: string;
-  userPage: DiaryPage;
-  charPage?: DiaryPage;
-  timestamp: number;
-  isArchived: boolean;
+    id: string;
+    charId: string;
+    date: string;
+    userPage: DiaryPage;
+    charPage?: DiaryPage;
+    timestamp: number;
+    isArchived: boolean;
+    /** 角色回复了的日记自动发到聊天后, 记录那条 score_card 消息的 id, 用于后续 edit/delete 同步 */
+    chatCardMessageId?: number;
+    /** 标记这条日记是"自动同步聊天"时代产生的 (本次更新后新建的). 老日记 (字段未设)
+     *  才会在列表里看到手动归档按钮. 防止用户对已经在自动同步上的新日记再点归档造成重复. */
+    autoSync?: boolean;
 }
 
 // ─── HANDBOOK / 手账 (跨角色聚合·零负担留痕本) ───
@@ -1217,46 +1896,46 @@ export interface DiaryEntry {
 //
 // Section / tag 模型留位但暂不在 UI 实装(等 user 想清楚)。
 export type HandbookPageType =
-  | 'user_diary'       // LLM 代笔 user 第一人称当日日记
-  | 'character_life'   // 生活系角色今日的生活流(陪伴页)
-  | 'user_note'        // user 自己手写/补充的一页
-  | 'free';            // 自由格式,未来扩展用
+    | 'user_diary'       // LLM 代笔 user 第一人称当日日记
+    | 'character_life'   // 生活系角色今日的生活流(陪伴页)
+    | 'user_note'        // user 自己手写/补充的一页
+    | 'free';            // 自由格式,未来扩展用
 
 export interface HandbookPage {
-  id: string;
-  type: HandbookPageType;
-  charId?: string;          // type=character_life 时绑定的角色
-  title?: string;
-  content: string;          // 主体文本(也是编辑/兜底渲染用)
-  /**
-   * 碎片化展示:LLM 生成时若返回 JSON 数组(社媒碎碎念体),解析出来存这里。
-   * 前端有 fragments 走 FragmentCollage 拼贴渲染,无则走 content 段落渲染。
-   * user 编辑后会清空 fragments,回退到 content 段落形态。
-   */
-  fragments?: HandbookFragment[];
-  paperStyle?: string;      // 'plain' | 'grid' | 'lined' | 'dot' | 'pink' | 'dark'
-  tags?: string[];          // 预留:section/标签(生理期/饮食/项目…),v1 不渲染
-  generatedBy?: 'llm' | 'user';
-  generatedAt?: number;
-  excluded?: boolean;       // user 把这页标记为不入册
-  isPinned?: boolean;
+    id: string;
+    type: HandbookPageType;
+    charId?: string;          // type=character_life 时绑定的角色
+    title?: string;
+    content: string;          // 主体文本(也是编辑/兜底渲染用)
+    /**
+     * 碎片化展示:LLM 生成时若返回 JSON 数组(社媒碎碎念体),解析出来存这里。
+     * 前端有 fragments 走 FragmentCollage 拼贴渲染,无则走 content 段落渲染。
+     * user 编辑后会清空 fragments,回退到 content 段落形态。
+     */
+    fragments?: HandbookFragment[];
+    paperStyle?: string;      // 'plain' | 'grid' | 'lined' | 'dot' | 'pink' | 'dark'
+    tags?: string[];          // 预留:section/标签(生理期/饮食/项目…),v1 不渲染
+    generatedBy?: 'llm' | 'user';
+    generatedAt?: number;
+    excluded?: boolean;       // user 把这页标记为不入册
+    isPinned?: boolean;
 }
 
 export interface HandbookFragment {
-  id: string;
-  text: string;             // 30~80 字社媒碎碎念体
-  time?: string;            // 可选时段标签,如 "上午 10 点" / "下午" / "10:23"
-  // ─── v2 槽位元数据 (新版式才有) ─────────────────────
-  /** 来自 LayoutTemplate 的槽 id */
-  slotId?: string;
-  /** 槽语义角色 — 渲染时按这个分发 */
-  slotRole?: SlotRole;
-  /** 谁写的 — 'user' 或某 charId */
-  authorKind?: 'user' | 'char';
-  /** 若是反应型槽 (sticky-reaction), 引用的目标 slotId */
-  refersTo?: string;
-  /** 结构化数据 (todo / gratitude / mood-card 等需要) */
-  payload?: SlotPayload;
+    id: string;
+    text: string;             // 30~80 字社媒碎碎念体
+    time?: string;            // 可选时段标签,如 "上午 10 点" / "下午" / "10:23"
+    // ─── v2 槽位元数据 (新版式才有) ─────────────────────
+    /** 来自 LayoutTemplate 的槽 id */
+    slotId?: string;
+    /** 槽语义角色 — 渲染时按这个分发 */
+    slotRole?: SlotRole;
+    /** 谁写的 — 'user' 或某 charId */
+    authorKind?: 'user' | 'char';
+    /** 若是反应型槽 (sticky-reaction), 引用的目标 slotId */
+    refersTo?: string;
+    /** 结构化数据 (todo / gratitude / mood-card 等需要) */
+    payload?: SlotPayload;
 }
 
 /**
@@ -1264,11 +1943,11 @@ export interface HandbookFragment {
  * 仅 todo/gratitude/mood-card/timeline-plan 这种"列表/打分"才填。
  */
 export type SlotPayload =
-  | { kind: 'todo'; items: { text: string; done?: boolean }[] }
-  | { kind: 'gratitude'; items: string[] }
-  | { kind: 'timeline'; items: { time: string; text: string; emoji?: string }[] }
-  | { kind: 'mood'; rating: number; tag?: string }       // rating 1~5
-  | { kind: 'photo'; src?: string; caption: string };   // src 由 user 贴, 也可暂缺
+    | { kind: 'todo'; items: { text: string; done?: boolean }[] }
+    | { kind: 'gratitude'; items: string[] }
+    | { kind: 'timeline'; items: { time: string; text: string; emoji?: string }[] }
+    | { kind: 'mood'; rating: number; tag?: string }       // rating 1~5
+    | { kind: 'photo'; src?: string; caption: string };   // src 由 user 贴, 也可暂缺
 
 // ─── 单页拼贴排版 ──────────────────────────────────────
 //
@@ -1283,10 +1962,10 @@ export type SlotPayload =
 
 /** v1 旧角色 — 仅为兼容历史 entry 数据保留, 新版式不要再产出 */
 export type LayoutRole =
-  | 'main'        // 主区,大块,正放或微旋转
-  | 'side'        // 侧栏,中等尺寸
-  | 'corner'      // 角落,小卡片,大旋转
-  | 'margin';     // 页边,极小尺寸,可以纵向
+    | 'main'        // 主区,大块,正放或微旋转
+    | 'side'        // 侧栏,中等尺寸
+    | 'corner'      // 角落,小卡片,大旋转
+    | 'margin';     // 页边,极小尺寸,可以纵向
 
 /**
  * v2 槽角色 —— 一个 role = 一种 "内容类型 + 视觉皮肤 + 写作约束"。
@@ -1302,14 +1981,14 @@ export type LayoutRole =
  * - corner-note      边角独白小字 (6~20 字)
  */
 export type SlotRole =
-  | 'hero-diary'
-  | 'timeline-plan'
-  | 'todo'
-  | 'gratitude'
-  | 'mood-card'
-  | 'photo-caption'
-  | 'sticky-reaction'
-  | 'corner-note';
+    | 'hero-diary'
+    | 'timeline-plan'
+    | 'todo'
+    | 'gratitude'
+    | 'mood-card'
+    | 'photo-caption'
+    | 'sticky-reaction'
+    | 'corner-note';
 
 /** 谁能填这个槽 */
 export type SlotAuthorKind = 'user' | 'char';
@@ -1319,72 +1998,72 @@ export type SlotAuthorKind = 'user' | 'char';
  * 比 v1 的 LayoutPlacement 多: charBudget / eligibleAuthors / slotRole / hint
  */
 export interface SlotDef {
-  /** 槽 id, 在一份 template 内唯一 */
-  id: string;
-  /** 视觉 + 内容类型 */
-  slotRole: SlotRole;
-  /** 字数预算 [min, max] —— 给 LLM, 也给渲染器估高度 */
-  charBudget: [number, number];
-  /** 谁能填: ['user'] / ['char'] / ['user', 'char'] */
-  eligibleAuthors: SlotAuthorKind[];
-  /** 给 LLM 的一句话目的 (作为 prompt hint) */
-  hint: string;
-  /** 位置 — 整页百分比 */
-  xPct: number;
-  yPct: number;
-  widthPct: number;
-  /** 高度上限 (% of page) — 渲染器超出截断, 估高用 */
-  maxHeightPct: number;
-  rotate?: number;             // 默认 0
-  zIndex?: number;             // 默认 10
-  /** 是否本页 hero — 每页 ≤ 1, 字号最大, 视觉权重最高 */
-  isHero?: boolean;
-  /** 视觉皮肤变体 (例: sticky-reaction 的便签底色) */
-  skinVariant?: string;
+    /** 槽 id, 在一份 template 内唯一 */
+    id: string;
+    /** 视觉 + 内容类型 */
+    slotRole: SlotRole;
+    /** 字数预算 [min, max] —— 给 LLM, 也给渲染器估高度 */
+    charBudget: [number, number];
+    /** 谁能填: ['user'] / ['char'] / ['user', 'char'] */
+    eligibleAuthors: SlotAuthorKind[];
+    /** 给 LLM 的一句话目的 (作为 prompt hint) */
+    hint: string;
+    /** 位置 — 整页百分比 */
+    xPct: number;
+    yPct: number;
+    widthPct: number;
+    /** 高度上限 (% of page) — 渲染器超出截断, 估高用 */
+    maxHeightPct: number;
+    rotate?: number;             // 默认 0
+    zIndex?: number;             // 默认 10
+    /** 是否本页 hero — 每页 ≤ 1, 字号最大, 视觉权重最高 */
+    isHero?: boolean;
+    /** 视觉皮肤变体 (例: sticky-reaction 的便签底色) */
+    skinVariant?: string;
 }
 
 /** 一份预置版式 = 一组 SlotDef + 一些视觉装饰 */
 export interface LayoutTemplate {
-  id: string;                  // 'plan-day' / 'reflective-day' / 'photo-day' / ...
-  name: string;                // 中文显示名
-  /** 每页 SlotDef 列表; index 0 = page 1, 1 = page 2 ... */
-  pages: SlotDef[][];
-  /** 推荐使用条件提示 (orchestrator 选模板用) */
-  suitFor?: string;
-  /** 默认纸张底纹: 'plain' | 'grid' | 'lined' | 'dot' */
-  paperStyle?: string;
+    id: string;                  // 'plan-day' / 'reflective-day' / 'photo-day' / ...
+    name: string;                // 中文显示名
+    /** 每页 SlotDef 列表; index 0 = page 1, 1 = page 2 ... */
+    pages: SlotDef[][];
+    /** 推荐使用条件提示 (orchestrator 选模板用) */
+    suitFor?: string;
+    /** 默认纸张底纹: 'plain' | 'grid' | 'lined' | 'dot' */
+    paperStyle?: string;
 }
 
 /** v2 placement —— LayoutPlacement 的扩展, 携带 slot 元数据。
  *  老数据没有 slotRole 时, 渲染器走 v1 的 JournalFragmentCard。 */
 export interface LayoutPlacement {
-  pageId: string;             // 对应 HandbookPage.id
-  fragmentId?: string;        // 对应 HandbookFragment.id;手写整页留空
-  xPct: number;               // 0~100,左上角 x
-  yPct: number;               // 0~100,左上角 y
-  widthPct: number;           // 10~95,卡片宽度占页面百分比
-  rotate: number;             // -10 ~ 10,角落可到 ±15
-  zIndex: number;             // 越大越压上面
-  role: LayoutRole;           // v1 角色 (兼容)
-  /** 该页 hero — 字号最大、视觉最显眼。每页最多 1 个。 */
-  isHero?: boolean;
-  // ─── v2 字段 (新版式才有, 老数据为 undefined) ───
-  /** 来自 template 的槽 id */
-  slotId?: string;
-  /** v2 语义角色 (有则按 SlotRole 分发渲染) */
-  slotRole?: SlotRole;
-  /** 高度上限 % */
-  maxHeightPct?: number;
-  /** 视觉变体 (跟随 SlotDef.skinVariant) */
-  skinVariant?: string;
+    pageId: string;             // 对应 HandbookPage.id
+    fragmentId?: string;        // 对应 HandbookFragment.id;手写整页留空
+    xPct: number;               // 0~100,左上角 x
+    yPct: number;               // 0~100,左上角 y
+    widthPct: number;           // 10~95,卡片宽度占页面百分比
+    rotate: number;             // -10 ~ 10,角落可到 ±15
+    zIndex: number;             // 越大越压上面
+    role: LayoutRole;           // v1 角色 (兼容)
+    /** 该页 hero — 字号最大、视觉最显眼。每页最多 1 个。 */
+    isHero?: boolean;
+    // ─── v2 字段 (新版式才有, 老数据为 undefined) ───
+    /** 来自 template 的槽 id */
+    slotId?: string;
+    /** v2 语义角色 (有则按 SlotRole 分发渲染) */
+    slotRole?: SlotRole;
+    /** 高度上限 % */
+    maxHeightPct?: number;
+    /** 视觉变体 (跟随 SlotDef.skinVariant) */
+    skinVariant?: string;
 }
 
 export interface HandbookLayout {
-  pageNumber: number;         // 一张纸,1-based;超量时可有 page 2
-  placements: LayoutPlacement[];
-  generatedAt: number;
-  /** v2 版式来源 template id (用于重生成时复用相同 template) */
-  templateId?: string;
+    pageNumber: number;         // 一张纸,1-based;超量时可有 page 2
+    placements: LayoutPlacement[];
+    generatedAt: number;
+    /** v2 版式来源 template id (用于重生成时复用相同 template) */
+    templateId?: string;
 }
 
 // ─── HANDBOOK TRACKER（自定义健康/生活打卡引擎）───
@@ -1396,385 +2075,423 @@ export interface HandbookLayout {
 // - 跟 HandbookPage 解耦:tracker 是结构化数据,page 是自由文本/碎片
 //
 export type TrackerFieldKind =
-  | 'rating'       // 1~5 等级(滑块 / emoji 选择)
-  | 'number'       // 数字(体重 / ml)
-  | 'options'      // 多选 / 单选(经期流量:无/少/中/多)
-  | 'photo'        // 一张图(饮食拍照)
-  | 'text'         // 一句话备注
-  | 'boolean';     // 是/否(今天有没有头痛)
+    | 'rating'       // 1~5 等级(滑块 / emoji 选择)
+    | 'number'       // 数字(体重 / ml)
+    | 'options'      // 多选 / 单选(经期流量:无/少/中/多)
+    | 'photo'        // 一张图(饮食拍照)
+    | 'text'         // 一句话备注
+    | 'boolean';     // 是/否(今天有没有头痛)
 
 export interface TrackerField {
-  key: string;                     // values 字典里的 key
-  label: string;                   // 显示名("评分" / "备注" / "流量")
-  kind: TrackerFieldKind;
-  required?: boolean;
-  /** rating: 1~max 整数;number: 自由数字 */
-  max?: number;
-  min?: number;
-  unit?: string;                   // 'kg' / 'ml' / '小时'
-  /** options 时的可选项 */
-  choices?: { value: string; label: string; emoji?: string }[];
-  placeholder?: string;
+    key: string;                     // values 字典里的 key
+    label: string;                   // 显示名("评分" / "备注" / "流量")
+    kind: TrackerFieldKind;
+    required?: boolean;
+    /** rating: 1~max 整数;number: 自由数字 */
+    max?: number;
+    min?: number;
+    unit?: string;                   // 'kg' / 'ml' / '小时'
+    /** options 时的可选项 */
+    choices?: { value: string; label: string; emoji?: string }[];
+    placeholder?: string;
 }
 
 export interface Tracker {
-  id: string;
-  name: string;                    // "心情" / "经期" / "今天有没有偏头痛"
-  icon?: string;                   // emoji 或 sticker 名
-  color: string;                   // tab/标记 底色
-  schema: TrackerField[];
-  createdAt: number;
-  updatedAt: number;
-  /** 系统预设 vs 用户自建（系统预设 user 可禁用但不可彻底删除）*/
-  isBuiltin?: boolean;
-  /** 在月历单元格上如何"一眼看到"今日 entry —— 默认显示主字段值 */
-  cellRenderField?: string;        // schema field key
-  sortOrder?: number;              // 在 tab 列表里的排序
+    id: string;
+    name: string;                    // "心情" / "经期" / "今天有没有偏头痛"
+    icon?: string;                   // emoji 或 sticker 名
+    color: string;                   // tab/标记 底色
+    schema: TrackerField[];
+    createdAt: number;
+    updatedAt: number;
+    /** 系统预设 vs 用户自建（系统预设 user 可禁用但不可彻底删除）*/
+    isBuiltin?: boolean;
+    /** 在月历单元格上如何"一眼看到"今日 entry —— 默认显示主字段值 */
+    cellRenderField?: string;        // schema field key
+    sortOrder?: number;              // 在 tab 列表里的排序
 }
 
 export interface TrackerEntry {
-  id: string;
-  trackerId: string;
-  date: string;                    // YYYY-MM-DD
-  values: Record<string, any>;
-  note?: string;
-  createdAt: number;
-  updatedAt: number;
+    id: string;
+    trackerId: string;
+    date: string;                    // YYYY-MM-DD
+    values: Record<string, any>;
+    note?: string;
+    createdAt: number;
+    updatedAt: number;
 }
 
 export interface HandbookEntry {
-  id: string;               // = date 'YYYY-MM-DD'
-  date: string;
-  pages: HandbookPage[];
-  /** 二次 LLM 生成的整页排版;一天可能跨多张纸 */
-  layouts?: HandbookLayout[];
-  generatedAt?: number;     // 最后一次自动生成的时间
-  updatedAt: number;
+    id: string;               // = date 'YYYY-MM-DD'
+    date: string;
+    pages: HandbookPage[];
+    /** 二次 LLM 生成的整页排版;一天可能跨多张纸 */
+    layouts?: HandbookLayout[];
+    generatedAt?: number;     // 最后一次自动生成的时间
+    updatedAt: number;
 }
 
 export interface Task {
-  id: string;
-  title: string;
-  supervisorId: string;
-  tone: 'gentle' | 'strict' | 'tsundere';
-  deadline?: string;
-  isCompleted: boolean;
-  completedAt?: number;
-  createdAt: number;
+    id: string;
+    title: string;
+    supervisorId: string;
+    tone: 'gentle' | 'strict' | 'tsundere';
+    deadline?: string;
+    isCompleted: boolean;
+    completedAt?: number;
+    createdAt: number;
 }
 
 export interface Anniversary {
-  id: string;
-  title: string;
-  date: string;
-  charId: string;
-  aiThought?: string;
-  lastThoughtGeneratedAt?: number;
+    id: string;
+    title: string;
+    date: string;
+    charId: string;
+    aiThought?: string;
+    lastThoughtGeneratedAt?: number;
 }
 
 export interface SocialComment {
-  id: string;
-  authorName: string;
-  authorAvatar?: string;
-  content: string;
-  likes: number;
-  isCharacter?: boolean;
-  authorType?: 'user' | 'character' | 'stranger';
-  authorCharId?: string;
+    id: string;
+    authorName: string;
+    authorAvatar?: string;
+    content: string;
+    likes: number;
+    isCharacter?: boolean;
+    authorType?: 'user' | 'character' | 'stranger';
+    authorCharId?: string;
 }
 
 export interface SocialPost {
-  id: string;
-  authorName: string;
-  authorAvatar: string;
-  title: string;
-  content: string;
-  images: string[];
-  likes: number;
-  isCollected: boolean;
-  isLiked: boolean;
-  comments: SocialComment[];
-  timestamp: number;
-  tags: string[];
-  bgStyle?: string;
-  authorType?: 'user' | 'character' | 'stranger';
-  authorCharId?: string;
+    id: string;
+    authorName: string;
+    authorAvatar: string;
+    title: string;
+    content: string;
+    images: string[];
+    likes: number;
+    isCollected: boolean;
+    isLiked: boolean;
+    comments: SocialComment[];
+    timestamp: number;
+    tags: string[];
+    bgStyle?: string;
+    authorType?: 'user' | 'character' | 'stranger';
+    authorCharId?: string;
 }
 
 export interface SubAccount {
-  id: string;
-  handle: string;
-  note: string;
+    id: string;
+    handle: string; 
+    note: string;   
 }
 
 export interface SocialAppProfile {
-  name: string;
-  avatar: string;
-  bio: string;
+    name: string;
+    avatar: string;
+    bio: string;
 }
 
 export interface StudyChapter {
-  id: string;
-  title: string;
-  summary: string;
-  difficulty: 'easy' | 'normal' | 'hard';
-  isCompleted: boolean;
-  rawContentRange?: { start: number, end: number };
-  content?: string;
+    id: string;
+    title: string;
+    summary: string;
+    difficulty: 'easy' | 'normal' | 'hard';
+    isCompleted: boolean;
+    rawContentRange?: { start: number, end: number }; 
+    content?: string; 
 }
 
 export interface StudyCourse {
-  id: string;
-  title: string;
-  rawText: string;
-  chapters: StudyChapter[];
-  currentChapterIndex: number;
-  createdAt: number;
-  coverStyle: string;
-  totalProgress: number;
-  preference?: string;
+    id: string;
+    title: string;
+    rawText: string; 
+    chapters: StudyChapter[];
+    currentChapterIndex: number;
+    createdAt: number;
+    coverStyle: string; 
+    totalProgress: number; 
+    preference?: string; 
 }
 
 export interface StudyTutorPreset {
-  id: string;
-  name: string;
-  prompt: string;
+    id: string;
+    name: string;
+    prompt: string;
 }
 
 // --- QUIZ / PRACTICE BOOK TYPES ---
 export interface QuizQuestionNote {
-  question: string;
-  answer: string;
-  timestamp: number;
+    question: string;
+    answer: string;
+    timestamp: number;
 }
 
 export interface QuizQuestion {
-  id: string;
-  type: 'choice' | 'true_false' | 'fill_blank';
-  stem: string;
-  options?: string[];
-  answer: string;           // For choice: "A"/"B"/etc, true_false: "true"/"false", fill_blank: the text
-  explanation: string;
-  userAnswer?: string;
-  isCorrect?: boolean;
-  notes?: QuizQuestionNote[];  // Follow-up Q&A notes per question
+    id: string;
+    type: 'choice' | 'true_false' | 'fill_blank';
+    stem: string;
+    options?: string[];
+    answer: string;           // For choice: "A"/"B"/etc, true_false: "true"/"false", fill_blank: the text
+    explanation: string;
+    userAnswer?: string;
+    isCorrect?: boolean;
+    notes?: QuizQuestionNote[];  // Follow-up Q&A notes per question
 }
 
 export interface QuizSession {
-  id: string;
-  courseId: string;
-  chapterId: string;
-  chapterTitle: string;
-  courseTitle: string;
-  questions: QuizQuestion[];
-  score: number;
-  totalQuestions: number;
-  aiReview: string;         // AI review/commentary full text
-  status: 'in_progress' | 'graded';
-  createdAt: number;
-  gradedAt?: number;
+    id: string;
+    courseId: string;
+    chapterId: string;
+    chapterTitle: string;
+    courseTitle: string;
+    questions: QuizQuestion[];
+    score: number;
+    totalQuestions: number;
+    aiReview: string;         // AI review/commentary full text
+    status: 'in_progress' | 'graded';
+    createdAt: number;
+    gradedAt?: number;
 }
 
 export type GameTheme = 'fantasy' | 'cyber' | 'horror' | 'modern';
 
 export interface GameActionOption {
-  label: string;
-  type: 'neutral' | 'chaotic' | 'evil';
+    label: string;
+    type: 'neutral' | 'chaotic' | 'evil';
 }
 
 export interface GameLog {
-  id: string;
-  role: 'gm' | 'player' | 'character' | 'system';
-  speakerName?: string;
-  content: string;
-  timestamp: number;
-  diceRoll?: {
-    result: number;
-    max: number;
-    check?: string;
-    success?: boolean;
-  };
+    id: string;
+    role: 'gm' | 'player' | 'character' | 'system';
+    speakerName?: string;
+    content: string;
+    timestamp: number;
+    diceRoll?: {
+        result: number;
+        max: number;
+        check?: string;
+        success?: boolean;
+    };
+    // 自动总结后，被归档折叠的日志会标记为 archived（不删除，UI 灰显折叠）
+    archived?: boolean;
+}
+
+// 自动总结产出的「前情提要」存档，像写小说一样记录起因经过结果与人物关系变化
+export interface GameSummary {
+    id: string;
+    content: string;       // 小说式总结（起因/经过/结果 + 人物关系变化）
+    logCount: number;      // 本段总结覆盖了多少条日志
+    logIds?: string[];     // 本段总结覆盖的日志 id（用于把原文与总结对应展示）
+    createdAt: number;
 }
 
 export interface GameSession {
-  id: string;
-  title: string;
-  theme: GameTheme;
-  worldSetting: string;
-  playerCharIds: string[];
-  logs: GameLog[];
-  status: {
-    location: string;
-    health: number;
-    sanity: number;
-    gold: number;
-    inventory: string[];
-  };
-  sanityLocked?: boolean;
-  suggestedActions?: GameActionOption[];
-  createdAt: number;
-  lastPlayedAt: number;
+    id: string;
+    title: string;
+    theme: GameTheme;
+    worldSetting: string;
+    playerCharIds: string[];
+    logs: GameLog[];
+    status: {
+        location: string;
+        health: number;
+        sanity: number;
+        gold: number;
+        inventory: string[];
+    };
+    sanityLocked?: boolean;
+    diceDisabled?: boolean;      // 关闭骰子：行动不再自动骰 D20，默认直接成功
+    // 归档模式：'auto' 满20条自动总结并送进角色 chatapp；'manual' 自动总结但不送，仅手动归档时送。
+    // 旧存档无此字段，按 'manual' 处理（不污染旧角色的聊天上下文）。
+    archiveMode?: 'auto' | 'manual';
+    suggestedActions?: GameActionOption[];
+    summaries?: GameSummary[];   // 自动总结归档的前情提要
+    createdAt: number;
+    lastPlayedAt: number;
 }
 
-export type MessageType = 'text' | 'image' | 'emoji' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'html_card' | 'news_card';
+export type MessageType = 'text' | 'image' | 'emoji' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'world_card';
 
 export interface Message {
-  id: number;
-  charId: string;
-  groupId?: string;
-  role: 'user' | 'assistant' | 'system';
-  type: MessageType;
-  content: string;
-  timestamp: number;
-  metadata?: any;
-  replyTo?: {
     id: number;
+    charId: string; 
+    groupId?: string; 
+    role: 'user' | 'assistant' | 'system';
+    type: MessageType;
     content: string;
-    name: string;
-  };
+    timestamp: number;
+    metadata?: any; 
+    replyTo?: {
+        id: number;
+        content: string;
+        name: string;
+    };
 }
 
 export interface EmojiCategory {
-  id: string;
-  name: string;
-  isSystem?: boolean;
-  allowedCharacterIds?: string[]; // If set, only these characters can see this category
+    id: string;
+    name: string;
+    isSystem?: boolean;
+    allowedCharacterIds?: string[]; // If set, only these characters can see this category
 }
 
 export interface Emoji {
-  name: string;
-  url: string;
-  categoryId?: string;
+    name: string;
+    url: string;
+    categoryId?: string; 
 }
 
 export interface FullBackupData {
-  timestamp: number;
-  version: number;
-  theme?: OSTheme;
-  apiConfig?: APIConfig;
-  apiPresets?: ApiPreset[];
-  availableModels?: string[];
-  realtimeConfig?: RealtimeConfig;  // 实时感知配置（天气/新闻/Notion）
-  customIcons?: Record<string, string>;
-  appearancePresets?: AppearancePreset[];
-  characters?: CharacterProfile[];
-  groups?: GroupProfile[];
-  messages?: Message[];
-  customThemes?: ChatTheme[];
-  savedEmojis?: Emoji[];
-  emojiCategories?: EmojiCategory[];
-  savedJournalStickers?: { name: string, url: string }[];
-  assets?: { id: string, data: string }[];
-  galleryImages?: GalleryImage[];
-  userProfile?: UserProfile;
-  diaries?: DiaryEntry[];
-  tasks?: Task[];
-  anniversaries?: Anniversary[];
-  roomTodos?: RoomTodo[];
-  roomNotes?: RoomNote[];
-  socialPosts?: SocialPost[];
-  courses?: StudyCourse[];
-  games?: GameSession[];
-  worldbooks?: Worldbook[];
-  roomCustomAssets?: { id?: string; name: string; image: string; defaultScale: number; description?: string; visibility?: 'public' | 'character'; assignedCharIds?: string[] }[];
+    timestamp: number;
+    version: number;
+    theme?: OSTheme;
+    apiConfig?: APIConfig;
+    instantPushConfig?: InstantPushConfig;
+    pushVapid?: { vapidPublicKey: string; vapidPrivateKey: string; vapidEmail?: string; updatedAt?: number; };
+    apiPresets?: ApiPreset[];
+    availableModels?: string[];
+    realtimeConfig?: RealtimeConfig;  // 实时感知配置（天气/新闻/Notion）
+    memoryPalaceConfig?: MemoryPalaceBackupConfig;
+    customIcons?: Record<string, string>;
+    appearancePresets?: AppearancePreset[];
+    characters?: CharacterProfile[];
+    groups?: GroupProfile[]; 
+    messages?: Message[];
+    customThemes?: ChatTheme[];
+    savedEmojis?: Emoji[]; 
+    emojiCategories?: EmojiCategory[]; 
+    savedJournalStickers?: {name: string, url: string}[]; 
+    assets?: { id: string, data: string }[];
+    galleryImages?: GalleryImage[];
+    userProfile?: UserProfile;
+    diaries?: DiaryEntry[];
+    tasks?: Task[];
+    anniversaries?: Anniversary[];
+    roomTodos?: RoomTodo[]; 
+    roomNotes?: RoomNote[];
+    socialPosts?: SocialPost[]; 
+    courses?: StudyCourse[]; 
+    games?: GameSession[];
+    worldbooks?: Worldbook[]; 
+    roomCustomAssets?: { id?: string; name: string; image: string; defaultScale: number; description?: string; visibility?: 'public' | 'character'; assignedCharIds?: string[] }[]; 
+    
+    novels?: NovelBook[];
+    vrNovels?: VRWorldNovel[];          // 虚拟世界「彼方」全局小说库
+    vrAnnotations?: VRNovelAnnotation[]; // 虚拟世界小说批注
+    customCreatorParts?: CustomCreatorPart[]; // 捏脸系统自定义部件
+    vrMusicRoom?: VRMusicRoomState;            // 听歌房共享状态
+    vrGuestbook?: VRGuestbookState;            // 留言簿共享状态
+    vrScripts?: VRScript[];                     // 剧院·投稿剧本库
+    vrStagedPlays?: VRStagedPlay[];             // 剧院·历史舞台剧
+    vrPresets?: { key: string; name: string; prompt: string; blurb?: string }[]; // 剧院·用户自定义写作风格预设
+    vrLetters?: VRLetter[];                    // 邮局信件（本地存档+队列）
+    vrSettings?: any[];                        // 彼方设置（独立 API + 调用记录）
+    worlds?: WorldProfile[];                   // 家园·世界定义
+    worldEpisodes?: WorldEpisode[];            // 家园·演绎历史
+    vrPostOffice?: Record<string, string>;     // 邮局本机配置：身份 deviceId / 后端地址（存 localStorage）
+    worldHomeLocal?: Record<string, string>;   // 家园本机配置：全局 API + 文风收藏（存 localStorage）
+    luckinLocal?: Record<string, string>;      // 瑞幸：token + 启用状态（存 localStorage）
+    songs?: SongSheet[]; // Songwriting app data
+    
+    // Bank Data
+    bankState?: BankFullState;
+    bankDollhouse?: DollhouseState;
+    bankTransactions?: BankTransaction[];
 
-  novels?: NovelBook[];
-  songs?: SongSheet[]; // Songwriting app data
+    socialAppData?: {
+        charHandles?: Record<string, SubAccount[]>;
+        userProfile?: SocialAppProfile;
+        userId?: string;
+        userBg?: string;
+    };
+    
+    mediaAssets?: {
+        charId: string;
+        avatar?: string;
+        sprites?: Record<string, string>;
+        dateSkinSets?: SkinSet[];
+        activeSkinSetId?: string;
+        customDateSprites?: string[];
+        spriteConfig?: SpriteConfig;
+        roomItems?: Record<string, string>;
+        backgrounds?: { chat?: string; date?: string; roomWall?: string; roomFloor?: string };
+    }[];
 
-  // Bank Data
-  bankState?: BankFullState;
-  bankDollhouse?: DollhouseState;
-  bankTransactions?: BankTransaction[];
+    xhsActivities?: XhsActivityRecord[];
+    xhsStockImages?: XhsStockImage[];
 
-  socialAppData?: {
-    charHandles?: Record<string, SubAccount[]>;
-    userProfile?: SocialAppProfile;
-    userId?: string;
-    userBg?: string;
-  };
+    // Study Room settings
+    studyApiConfig?: Partial<APIConfig>;
+    studyTutorPresets?: StudyTutorPreset[];
 
-  mediaAssets?: {
-    charId: string;
-    avatar?: string;
-    sprites?: Record<string, string>;
-    dateSkinSets?: SkinSet[];
-    activeSkinSetId?: string;
-    customDateSprites?: string[];
-    spriteConfig?: SpriteConfig;
-    roomItems?: Record<string, string>;
-    backgrounds?: { chat?: string; date?: string; roomWall?: string; roomFloor?: string };
-  }[];
+    // Quiz / Practice Book
+    quizSessions?: QuizSession[];
 
-  xhsActivities?: XhsActivityRecord[];
-  xhsStockImages?: XhsStockImage[];
+    // Guidebook (攻略本)
+    guidebookSessions?: GuidebookSession[];
 
-  // Study Room settings
-  studyApiConfig?: Partial<APIConfig>;
-  studyTutorPresets?: StudyTutorPreset[];
+    // Chat delayed actions
+    scheduledMessages?: {
+        id: string;
+        charId: string;
+        content: string;
+        dueAt: number;
+        createdAt: number;
+    }[];
 
-  // Quiz / Practice Book
-  quizSessions?: QuizSession[];
+    // LifeSim
+    lifeSimState?: LifeSimState | null;
 
-  // Guidebook (攻略本)
-  guidebookSessions?: GuidebookSession[];
+    // Memory Palace (记忆宫殿)
+    memoryNodes?: any[];
+    memoryVectors?: any[];
+    memoryLinks?: any[];
+    topicBoxes?: any[];
+    anticipations?: any[];
+    eventBoxes?: any[];
+    memoryPalaceHighWaterMarks?: Record<string, number>; // charId → lastProcessedMsgId
+    memoryPalaceFlags?: Record<string, string>; // mp_personality_tried_* / mp_first_archive_notice_* 等 UI 标记
+    cloudBackupConfig?: CloudBackupConfig;
+    remoteVectorConfig?: { enabled: boolean; supabaseUrl: string; supabaseAnonKey: string; initialized: boolean };
 
-  // Chat delayed actions
-  scheduledMessages?: {
-    id: string;
-    charId: string;
-    content: string;
-    dueAt: number;
-    createdAt: number;
-  }[];
+    // Character daily schedule (角色日程表 — daily_schedule store)
+    dailySchedules?: DailySchedule[];
 
-  // LifeSim
-  lifeSimState?: LifeSimState | null;
+    // 手账（跨角色聚合留痕本 — handbook store）
+    handbooks?: HandbookEntry[];
 
-  // Memory Palace (记忆宫殿)
-  memoryNodes?: any[];
-  memoryVectors?: any[];
-  memoryLinks?: any[];
-  topicBoxes?: any[];
-  anticipations?: any[];
-  eventBoxes?: any[];
-  memoryPalaceHighWaterMarks?: Record<string, number>; // charId → lastProcessedMsgId
-  memoryPalaceFlags?: Record<string, string>; // mp_personality_tried_* / mp_first_archive_notice_* 等 UI 标记
-  cloudBackupConfig?: CloudBackupConfig;
-  remoteVectorConfig?: { enabled: boolean; supabaseUrl: string; supabaseAnonKey: string; initialized: boolean };
+    // 手账 Tracker（健康/生活打卡引擎）
+    trackers?: Tracker[];
+    trackerEntries?: TrackerEntry[];
 
-  // Character daily schedule (角色日程表 — daily_schedule store)
-  dailySchedules?: DailySchedule[];
+    // Memory Palace 批次处理元数据
+    memoryBatches?: any[];
 
-  // 手账（跨角色聚合留痕本 — handbook store）
-  handbooks?: HandbookEntry[];
+    // Pixel Home（小屋像素界面）
+    pixelHomeAssets?: any[];
+    pixelHomeLayouts?: any[];
 
-  // 手账 Tracker（健康/生活打卡引擎）
-  trackers?: Tracker[];
-  trackerEntries?: TrackerEntry[];
+    // Chat 设置（翻译 / 归档 / 润色 prompts）
+    chatTranslateSourceLang?: string;
+    chatTranslateTargetLang?: string;
+    chatTranslateSourceLangByChar?: Record<string, string>;
+    chatTranslateTargetLangByChar?: Record<string, string>;
+    chatTranslateEnabledByChar?: Record<string, boolean>;
+    chatArchivePrompts?: any;
+    chatActiveArchivePromptId?: string;
+    characterRefinePrompts?: any;
+    characterActiveRefinePromptId?: string;
 
-  // Memory Palace 批次处理元数据
-  memoryBatches?: any[];
-
-  // Pixel Home（小屋像素界面）
-  pixelHomeAssets?: any[];
-  pixelHomeLayouts?: any[];
-
-  // Chat 设置（翻译 / 归档 / 润色 prompts）
-  chatTranslateSourceLang?: string;
-  chatTranslateTargetLang?: string;
-  chatTranslateEnabledByChar?: Record<string, boolean>;
-  chatArchivePrompts?: any;
-  chatActiveArchivePromptId?: string;
-  characterRefinePrompts?: any;
-  characterActiveRefinePromptId?: string;
-
-  // 其它 UI / 偏好
-  scheduleAppTheme?: string;
-  groupchatContextLimit?: number;
-  browserConfig?: { braveKey?: string; useRealSearch?: boolean };
-  bm25Mode?: string;
-  lastActiveCharId?: string;
-  eventNotifFlags?: Record<string, string>;  // sullyos_* 事件通知标记
+    // 其它 UI / 偏好
+    scheduleAppTheme?: string;
+    handbookLifestreamDepth?: string;
+    groupchatContextLimit?: number;
+    browserConfig?: { braveKey?: string; useRealSearch?: boolean };
+    bm25Mode?: string;
+    lastActiveCharId?: string;
+    eventNotifFlags?: Record<string, string>;  // sullyos_* 事件通知标记
+    hotNewsSnapshots?: HotNewsSnapshot[];
 }
 
 // --- CLOUD BACKUP TYPES ---
@@ -1783,80 +2500,80 @@ export interface FullBackupData {
 export type CloudBackupProvider = 'webdav' | 'github';
 
 export interface CloudBackupConfig {
-  enabled: boolean;
-  provider?: CloudBackupProvider;     // undefined = 'webdav' (back-compat)
+    enabled: boolean;
+    provider?: CloudBackupProvider;     // undefined = 'webdav' (back-compat)
 
-  // WebDAV
-  webdavUrl: string;          // e.g. https://dav.jianguoyun.com/dav/
-  username: string;
-  password: string;           // App-specific password
-  remotePath: string;         // e.g. /SullyBackup/
+    // WebDAV
+    webdavUrl: string;          // e.g. https://dav.jianguoyun.com/dav/
+    username: string;
+    password: string;           // App-specific password
+    remotePath: string;         // e.g. /SullyBackup/
 
-  // GitHub Releases — uses a Personal Access Token. Owner is resolved from
-  // GET /user during connect; repo defaults to 'sully-backup' (private).
-  githubToken?: string;
-  githubOwner?: string;
-  githubRepo?: string;
-  githubUseProxy?: boolean;   // route through Cloudflare Worker (for GFW)
+    // GitHub Releases — uses a Personal Access Token. Owner is resolved from
+    // GET /user during connect; repo defaults to 'sully-backup' (private).
+    githubToken?: string;
+    githubOwner?: string;
+    githubRepo?: string;
+    githubUseProxy?: boolean;   // route through Cloudflare Worker (for GFW)
 
-  lastBackupTime?: number;    // timestamp
-  lastBackupSize?: number;    // bytes
+    lastBackupTime?: number;    // timestamp
+    lastBackupSize?: number;    // bytes
 }
 
 export interface CloudBackupFile {
-  name: string;
-  size: number;
-  lastModified: string;       // ISO date string
-  href: string;               // WebDAV: remote path. GitHub: 'releaseId:assetId'
+    name: string;
+    size: number;
+    lastModified: string;       // ISO date string
+    href: string;               // WebDAV: remote path. GitHub: 'releaseId:assetId'
 }
 
 // --- GUIDEBOOK (攻略本) APP TYPES ---
 export interface GuidebookOption {
-  text: string;
-  affinity: number;
+    text: string;
+    affinity: number;
 }
 
 export interface GuidebookRound {
-  id: string;
-  roundNumber: number;
-  scenario: string;
-  options: GuidebookOption[];
-  gmNarration: string;
-  charInnerThought: string;
-  charChoice: number;
-  charReaction: string;
-  charExploration?: string;
-  charInsight?: string;      // what user's scoring reveals about their personality
-  affinityBefore: number;
-  affinityAfter: number;
-  timestamp: number;
+    id: string;
+    roundNumber: number;
+    scenario: string;
+    options: GuidebookOption[];
+    gmNarration: string;
+    charInnerThought: string;
+    charChoice: number;
+    charReaction: string;
+    charExploration?: string;
+    charInsight?: string;      // what user's scoring reveals about their personality
+    affinityBefore: number;
+    affinityAfter: number;
+    timestamp: number;
 }
 
 export interface GuidebookEndCard {
-  finalAffinity: number;
-  charVerdict: string;
-  title: string;
-  highlights: string[];
-  charSummary?: string;
-  charNewInsight?: string;   // the one specific thing char learned about user this session
+    finalAffinity: number;
+    charVerdict: string;
+    title: string;
+    highlights: string[];
+    charSummary?: string;
+    charNewInsight?: string;   // the one specific thing char learned about user this session
 }
 
 export interface GuidebookSession {
-  id: string;
-  charId: string;
-  initialAffinity: number;
-  currentAffinity: number;
-  maxRounds: number;
-  currentRound: number;
-  mode: 'manual' | 'auto';
-  scenarioHint?: string;
-  recentMessageCount?: number;
-  rounds: GuidebookRound[];
-  openingSequence?: string;
-  status: 'setup' | 'opening' | 'playing' | 'ended';
-  endCard?: GuidebookEndCard;
-  createdAt: number;
-  lastPlayedAt: number;
+    id: string;
+    charId: string;
+    initialAffinity: number;
+    currentAffinity: number;
+    maxRounds: number;
+    currentRound: number;
+    mode: 'manual' | 'auto';
+    scenarioHint?: string;
+    recentMessageCount?: number;
+    rounds: GuidebookRound[];
+    openingSequence?: string;
+    status: 'setup' | 'opening' | 'playing' | 'ended';
+    endCard?: GuidebookEndCard;
+    createdAt: number;
+    lastPlayedAt: number;
 }
 
 // --- XHS FREE ROAM / AUTONOMOUS ACTIVITY TYPES ---
@@ -1864,41 +2581,41 @@ export interface GuidebookSession {
 export type XhsActionType = 'post' | 'browse' | 'search' | 'comment' | 'save_topic' | 'idle';
 
 export interface XhsActivityRecord {
-  id: string;
-  characterId: string;
-  timestamp: number;
-  actionType: XhsActionType;
-  content: {
-    title?: string;
-    body?: string;
-    tags?: string[];
-    keyword?: string;
-    savedTopics?: { title: string; desc: string; noteId?: string }[];
-    notesViewed?: { noteId: string; title: string; desc: string; author: string; likes: number }[];
-    commentTarget?: { noteId: string; title: string };
-    commentText?: string;
-  };
-  thinking: string;  // Character's internal monologue / reasoning
-  result: 'success' | 'failed' | 'skipped';
-  resultMessage?: string;
+    id: string;
+    characterId: string;
+    timestamp: number;
+    actionType: XhsActionType;
+    content: {
+        title?: string;
+        body?: string;
+        tags?: string[];
+        keyword?: string;
+        savedTopics?: { title: string; desc: string; noteId?: string }[];
+        notesViewed?: { noteId: string; title: string; desc: string; author: string; likes: number }[];
+        commentTarget?: { noteId: string; title: string };
+        commentText?: string;
+    };
+    thinking: string;  // Character's internal monologue / reasoning
+    result: 'success' | 'failed' | 'skipped';
+    resultMessage?: string;
 }
 
 export interface XhsFreeRoamSession {
-  id: string;
-  characterId: string;
-  startedAt: number;
-  endedAt?: number;
-  activities: XhsActivityRecord[];
-  summary?: string;  // AI-generated session summary
+    id: string;
+    characterId: string;
+    startedAt: number;
+    endedAt?: number;
+    activities: XhsActivityRecord[];
+    summary?: string;  // AI-generated session summary
 }
 
 export interface XhsMcpConfig {
-  enabled: boolean;
-  serverUrl: string;  // MCP: "http://localhost:18060/mcp" | Skills: "http://localhost:18061/api" | Lite Worker: "https://xhs-lite.<acct>.workers.dev/api"
-  cookie?: string;    // Lite 模式：登录后的小红书完整 cookie（含 a1 / web_session）。仅 lite Worker 用。
-  loggedInUserId?: string;   // 登录用户的 user_id，连接测试成功后自动获取
-  loggedInNickname?: string; // 登录用户的昵称
-  userXsecToken?: string;    // 连接测试时从首页推荐自动提取的 xsec_token
+    enabled: boolean;
+    serverUrl: string;  // MCP: "http://localhost:18060/mcp" | Skills: "http://localhost:18061/api" | Lite Worker: "https://xhs-lite.<acct>.workers.dev/api"
+    cookie?: string;    // Lite 模式：登录后的小红书完整 cookie（含 a1 / web_session）。仅 lite Worker 用。
+    loggedInUserId?: string;   // 登录用户的 user_id，连接测试成功后自动获取
+    loggedInNickname?: string; // 登录用户的昵称
+    userXsecToken?: string;    // 连接测试时从首页推荐自动提取的 xsec_token
 }
 
 // ============================================================
@@ -1906,54 +2623,54 @@ export interface XhsMcpConfig {
 // ============================================================
 
 export type SimActionType =
-  | 'ADD_NPC'        // 创建NPC并丢进某家庭
-  | 'MOVE_NPC'       // 把NPC移到另一个家庭
-  | 'TRIGGER_EVENT'  // 触发事件（吵架/联谊/出走等）
-  | 'GO_SOLO'        // NPC独立成家
-  | 'DO_NOTHING';    // 观望
+    | 'ADD_NPC'        // 创建NPC并丢进某家庭
+    | 'MOVE_NPC'       // 把NPC移到另一个家庭
+    | 'TRIGGER_EVENT'  // 触发事件（吵架/联谊/出走等）
+    | 'GO_SOLO'        // NPC独立成家
+    | 'DO_NOTHING';    // 观望
 
 export type SimEventType =
-  | 'fight'          // 吵架
-  | 'party'          // 联谊/聚会
-  | 'gossip'         // 搬弄是非
-  | 'romance'        // 暧昧
-  | 'rivalry'        // 竞争
-  | 'alliance';      // 结盟
+    | 'fight'          // 吵架
+    | 'party'          // 联谊/聚会
+    | 'gossip'         // 搬弄是非
+    | 'romance'        // 暧昧
+    | 'rivalry'        // 竞争
+    | 'alliance';      // 结盟
 
 // 事件链效果代码
 export type SimEffectCode =
-  | 'fight_break'           // 矛盾爆发（离家出走）
-  | 'mood_drop'             // 心情低落
-  | 'relationship_change'   // 关系变化
-  | 'revenge_plot'          // 复仇计划
-  | 'love_triangle'         // 三角恋
-  | 'jealousy_spiral'       // 嫉妒螺旋
-  | 'family_feud'           // 家族世仇
-  | 'betrayal'              // 背叛
-  | 'romantic_confession'   // 浪漫告白
-  | 'gossip_wildfire'       // 八卦野火
-  | 'npc_runaway'           // NPC出走
-  | 'mood_breakdown'        // 情绪崩溃
-  | 'secret_alliance'       // 秘密同盟
-  | 'power_shift'           // 权力更迭
-  | 'reconciliation';       // 和解
+    | 'fight_break'           // 矛盾爆发（离家出走）
+    | 'mood_drop'             // 心情低落
+    | 'relationship_change'   // 关系变化
+    | 'revenge_plot'          // 复仇计划
+    | 'love_triangle'         // 三角恋
+    | 'jealousy_spiral'       // 嫉妒螺旋
+    | 'family_feud'           // 家族世仇
+    | 'betrayal'              // 背叛
+    | 'romantic_confession'   // 浪漫告白
+    | 'gossip_wildfire'       // 八卦野火
+    | 'npc_runaway'           // NPC出走
+    | 'mood_breakdown'        // 情绪崩溃
+    | 'secret_alliance'       // 秘密同盟
+    | 'power_shift'           // 权力更迭
+    | 'reconciliation';       // 和解
 
 // NPC 内驱力
 export type NPCDesire =
-  | { type: 'socialize'; targetNpcId: string }
-  | { type: 'revenge'; targetNpcId: string }
-  | { type: 'romance'; targetNpcId: string }
-  | { type: 'leave_family' }
-  | { type: 'recruit'; targetNpcId: string }
-  | { type: 'gossip_about'; targetNpcId: string }
-  | { type: 'start_rivalry'; targetNpcId: string };
+    | { type: 'socialize'; targetNpcId: string }
+    | { type: 'revenge'; targetNpcId: string }
+    | { type: 'romance'; targetNpcId: string }
+    | { type: 'leave_family' }
+    | { type: 'recruit'; targetNpcId: string }
+    | { type: 'gossip_about'; targetNpcId: string }
+    | { type: 'start_rivalry'; targetNpcId: string };
 
 // 角色叙事层
 export interface CharNarrative {
-  innerThought: string;      // 角色内心独白（100字内）
-  dialogue: string;          // 角色说的话/场景描写（150字内）
-  commentOnWorld: string;    // 对世界状态的吐槽（50字内）
-  emotionalTone: 'vengeful' | 'romantic' | 'scheming' | 'chaotic' | 'peaceful' | 'amused' | 'anxious';
+    innerThought: string;      // 角色内心独白（100字内）
+    dialogue: string;          // 角色说的话/场景描写（150字内）
+    commentOnWorld: string;    // 对世界状态的吐槽（50字内）
+    emotionalTone: 'vengeful' | 'romantic' | 'scheming' | 'chaotic' | 'peaceful' | 'amused' | 'anxious';
 }
 
 export type SimStoryKind = 'main_plot' | 'character_drama' | 'ambient' | 'system';
@@ -1961,90 +2678,90 @@ export type SimStoryAttachmentKind = 'image' | 'item' | 'fanfic' | 'evidence';
 export type SimStoryAttachmentRarity = 'common' | 'rare' | 'epic';
 
 export interface SimStoryAttachmentDraft {
-  kind: SimStoryAttachmentKind;
-  title: string;
-  summary: string;
-  detail?: string;
-  visualPrompt?: string;
-  rarity?: SimStoryAttachmentRarity;
+    kind: SimStoryAttachmentKind;
+    title: string;
+    summary: string;
+    detail?: string;
+    visualPrompt?: string;
+    rarity?: SimStoryAttachmentRarity;
 }
 
 export interface SimStoryAttachment {
-  id: string;
-  kind: SimStoryAttachmentKind;
-  title: string;
-  summary: string;
-  detail?: string;
-  imageUrl?: string;
-  rarity?: SimStoryAttachmentRarity;
+    id: string;
+    kind: SimStoryAttachmentKind;
+    title: string;
+    summary: string;
+    detail?: string;
+    imageUrl?: string;
+    rarity?: SimStoryAttachmentRarity;
 }
 
 export interface SimAction {
-  id: string;
-  turnNumber: number;
-  actor: string;       // 'user' | char.name
-  actorAvatar: string; // char.avatar or '🧑'
-  actorId: string;     // 'user' | char.id | 'system' | 'autonomous'
-  type: SimActionType;
-  description: string;      // 自然语言，CHAR们读这个
-  immediateResult: string;  // 即时后果描述
-  reasoning?: string;       // 角色内心独白（完整原文）
-  reactionToUser?: string;  // 角色对玩家操作的评价
-  narrative?: CharNarrative; // 角色叙事层（LLM回合使用）
-  chainFromId?: string;     // 由哪个事件链引发
-  storyKind?: SimStoryKind;
-  headline?: string;
-  involvedNpcIds?: string[];
-  attachments?: SimStoryAttachment[];
-  timestamp: number;
+    id: string;
+    turnNumber: number;
+    actor: string;       // 'user' | char.name
+    actorAvatar: string; // char.avatar or '🧑'
+    actorId: string;     // 'user' | char.id | 'system' | 'autonomous'
+    type: SimActionType;
+    description: string;      // 自然语言，CHAR们读这个
+    immediateResult: string;  // 即时后果描述
+    reasoning?: string;       // 角色内心独白（完整原文）
+    reactionToUser?: string;  // 角色对玩家操作的评价
+    narrative?: CharNarrative; // 角色叙事层（LLM回合使用）
+    chainFromId?: string;     // 由哪个事件链引发
+    storyKind?: SimStoryKind;
+    headline?: string;
+    involvedNpcIds?: string[];
+    attachments?: SimStoryAttachment[];
+    timestamp: number;
 }
 
 export interface SimPendingEffect {
-  id: string;
-  triggerTurn: number;
-  npcId?: string;
-  familyId?: string;
-  description: string;
-  effectCode: SimEffectCode;
-  effectValue?: number;
-  chainFrom?: string;        // 产生此效果的事件ID
-  severity?: number;         // 1-5 严重程度
-  involvedNpcIds?: string[]; // 涉及的NPC
+    id: string;
+    triggerTurn: number;
+    npcId?: string;
+    familyId?: string;
+    description: string;
+    effectCode: SimEffectCode;
+    effectValue?: number;
+    chainFrom?: string;        // 产生此效果的事件ID
+    severity?: number;         // 1-5 严重程度
+    involvedNpcIds?: string[]; // 涉及的NPC
 }
 
 export interface SimNPC {
-  id: string;
-  name: string;
-  emoji: string;       // 角色头像 emoji（后续替换为像素头像seed）
-  personality: string[]; // ["暴躁","善良","好奇"]
-  mood: number;        // -100 ~ 100
-  familyId: string | null; // null = 独立
-  profession?: SimProfession; // 纯身份标签
-  gold?: number;              // 财富指标
-  // 人物故事系统
-  gender?: SimGender;         // 性别（每局随机）
-  bio?: string;               // 人物简介（1-2句）
-  backstory?: string;         // 背景故事（2-3句）
-  // 内驱力系统
-  desires?: NPCDesire[];      // 当前欲望
-  grudges?: string[];         // 记仇对象 NPC IDs
-  crushes?: string[];         // 暗恋对象 NPC IDs
-  // 向后兼容旧存档（迁移时删除）
-  energy?: number;
-  skills?: SimSkills;
-  inventory?: Record<string, number>;
-  currentActivity?: SimActivity;
-  activityResult?: string;
+    id: string;
+    name: string;
+    emoji: string;       // 角色头像 emoji（后续替换为像素头像seed）
+    personality: string[]; // ["暴躁","善良","好奇"]
+    mood: number;        // -100 ~ 100
+    familyId: string | null; // null = 独立
+    profession?: SimProfession; // 纯身份标签
+    gold?: number;              // 财富指标
+    // 人物故事系统
+    gender?: SimGender;         // 性别（每局随机）
+    bio?: string;               // 人物简介（1-2句）
+    backstory?: string;         // 背景故事（2-3句）
+    // 内驱力系统
+    desires?: NPCDesire[];      // 当前欲望
+    grudges?: string[];         // 记仇对象 NPC IDs
+    crushes?: string[];         // 暗恋对象 NPC IDs
+    // 向后兼容旧存档（迁移时删除）
+    energy?: number;
+    skills?: SimSkills;
+    inventory?: Record<string, number>;
+    currentActivity?: SimActivity;
+    activityResult?: string;
 }
 
 export interface SimFamily {
-  id: string;
-  name: string;
-  emoji: string;       // 家庭标志 emoji
-  memberIds: string[];
-  relationships: Record<string, Record<string, number>>; // npcId -> npcId -> [-100,100]
-  homeX: number;       // 0-100 percent
-  homeY: number;
+    id: string;
+    name: string;
+    emoji: string;       // 家庭标志 emoji
+    memberIds: string[];
+    relationships: Record<string, Record<string, number>>; // npcId -> npcId -> [-100,100]
+    homeX: number;       // 0-100 percent
+    homeY: number;
 }
 
 // ── LifeSim 基础类型 ──────────────────────────────────────────
@@ -2053,7 +2770,7 @@ export type SimSeason = 'spring' | 'summer' | 'fall' | 'winter';
 export type SimWeather = 'sunny' | 'cloudy' | 'rainy' | 'stormy' | 'snowy' | 'windy';
 export type SimTimeOfDay = 'dawn' | 'morning' | 'afternoon' | 'evening' | 'night';
 export type SimProfession = 'programmer' | 'designer' | 'finance' | 'influencer' | 'lawyer' | 'freelancer' | 'barista' | 'musician'
-  | 'internet_troll' | 'fanfic_writer' | 'fan_artist' | 'college_student' | 'tired_worker' | 'old_fashioned' | 'fashion_designer';
+    | 'internet_troll' | 'fanfic_writer' | 'fan_artist' | 'college_student' | 'tired_worker' | 'old_fashioned' | 'fashion_designer';
 
 export type SimGender = 'male' | 'female' | 'nonbinary';
 
@@ -2063,61 +2780,61 @@ export interface SimSkills { farming: number; mining: number; fishing: number; c
 export interface SimBuilding { id: string; type: string; name: string; x: number; y: number; level: number; familyId?: string; }
 
 export interface SimFestival {
-  name: string;
-  season: SimSeason;
-  day: number;
-  emoji: string;
-  description: string;
-  moodBonus: number;
-  relBonus: number;
-  chaosChange: number;
+    name: string;
+    season: SimSeason;
+    day: number;
+    emoji: string;
+    description: string;
+    moodBonus: number;
+    relBonus: number;
+    chaosChange: number;
 }
 
 // 离线回顾事件
 export interface OfflineRecapEvent {
-  day: number;
-  season: SimSeason;
-  timeOfDay: SimTimeOfDay;
-  headline: string;          // 戏剧性标题
-  description: string;       // 事件描述
-  involvedNpcs: { name: string; emoji: string }[];
-  eventType: SimEventType | SimEffectCode;
-  moodChanges?: Record<string, number>;   // npcId -> delta
-  relChanges?: { a: string; b: string; delta: number }[];
-  chaosChange?: number;
-  narrativeQuote?: string;   // 离线模板旁白
+    day: number;
+    season: SimSeason;
+    timeOfDay: SimTimeOfDay;
+    headline: string;          // 戏剧性标题
+    description: string;       // 事件描述
+    involvedNpcs: { name: string; emoji: string }[];
+    eventType: SimEventType | SimEffectCode;
+    moodChanges?: Record<string, number>;   // npcId -> delta
+    relChanges?: { a: string; b: string; delta: number }[];
+    chaosChange?: number;
+    narrativeQuote?: string;   // 离线模板旁白
 }
 
 export interface LifeSimState {
-  id: string;
-  createdAt: number;
-  turnNumber: number;
-  currentActorId: string; // 'user' | char.id — 当前谁的回合
-  families: SimFamily[];
-  npcs: SimNPC[];
-  actionLog: SimAction[];  // 完整历史
-  pendingEffects: SimPendingEffect[];
-  chaosLevel: number;      // 0-100，乱度指数
-  charQueue: string[];     // 待执行的CHAR id队列（用户结束后填入）
-  replayPending: SimAction[]; // 用户回来后待回放的行动
-  participantCharIds?: string[]; // 允许参与本局LifeSim的外部角色
-  useIndependentApiConfig?: boolean;
-  independentApiConfig?: Partial<APIConfig>;
-  isProcessingCharTurn: boolean;
-  gameOver: boolean;
-  gameOverReason?: string;
-  // 时间系统
-  season?: SimSeason;
-  day?: number;        // 1-28
-  year?: number;
-  timeOfDay?: SimTimeOfDay;
-  weather?: SimWeather;
-  lastFestival?: string;  // 上次触发的节日名
-  // 离线模拟
-  lastActiveTimestamp?: number; // 上次活跃时间
-  offlineRecap?: OfflineRecapEvent[]; // 离线回顾数据
-  // 旧字段（存档兼容，运行时忽略）
-  buildings?: SimBuilding[];
-  worldInventory?: Record<string, number>;
-  worldGold?: number;
+    id: string;
+    createdAt: number;
+    turnNumber: number;
+    currentActorId: string; // 'user' | char.id — 当前谁的回合
+    families: SimFamily[];
+    npcs: SimNPC[];
+    actionLog: SimAction[];  // 完整历史
+    pendingEffects: SimPendingEffect[];
+    chaosLevel: number;      // 0-100，乱度指数
+    charQueue: string[];     // 待执行的CHAR id队列（用户结束后填入）
+    replayPending: SimAction[]; // 用户回来后待回放的行动
+    participantCharIds?: string[]; // 允许参与本局LifeSim的外部角色
+    useIndependentApiConfig?: boolean;
+    independentApiConfig?: Partial<APIConfig>;
+    isProcessingCharTurn: boolean;
+    gameOver: boolean;
+    gameOverReason?: string;
+    // 时间系统
+    season?: SimSeason;
+    day?: number;        // 1-28
+    year?: number;
+    timeOfDay?: SimTimeOfDay;
+    weather?: SimWeather;
+    lastFestival?: string;  // 上次触发的节日名
+    // 离线模拟
+    lastActiveTimestamp?: number; // 上次活跃时间
+    offlineRecap?: OfflineRecapEvent[]; // 离线回顾数据
+    // 旧字段（存档兼容，运行时忽略）
+    buildings?: SimBuilding[];
+    worldInventory?: Record<string, number>;
+    worldGold?: number;
 }

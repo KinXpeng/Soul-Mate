@@ -9,12 +9,15 @@ import Modal from '../components/os/Modal';
 import { NotionManager, FeishuManager } from '../utils/realtimeContext';
 import { XhsMcpClient } from '../utils/xhsMcpClient';
 import { getMcdToken, setMcdToken as saveMcdToken, isMcdEnabled, setMcdEnabled as saveMcdEnabled, testMcdConnection, resetMcdSession } from '../utils/mcdMcpClient';
-import { Sun, Newspaper, NotePencil, Notebook, Book, ForkKnife } from '@phosphor-icons/react';
+import { getLuckinToken, setLuckinToken as saveLuckinToken, isLuckinEnabled, setLuckinEnabled as saveLuckinEnabled, testLuckinConnection, resetLuckinSession } from '../utils/luckinMcpClient';
+import { Sun, Newspaper, NotePencil, Notebook, Book, ForkKnife, Coffee } from '@phosphor-icons/react';
 import { loadPushConfig, savePushConfig, registerScheduleOnWorker, startHeartbeat, stopHeartbeat, isPushConfigAvailable, ensureSubscribed, sendTestPush, getPushDiagnostics, resetSubscription, deepResetSubscription, type PushDiagnostics } from '../utils/proactivePushConfig';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { InstantPushSettingsModal } from '../components/settings/InstantPushSettingsModal';
 import { PushVapidSettingsModal } from '../components/settings/PushVapidSettingsModal';
+import VersionInfo from '../components/settings/VersionInfo';
 import { isPushVapidReady } from '../utils/pushVapid';
+import ApiCallLogModal from '../components/settings/ApiCallLogModal';
 
 // hot_news（orz.ai）可选热榜平台。key 必须与 API 的 ?platform= 完全一致。
 const HOTNEWS_PLATFORM_OPTIONS: { key: string; label: string }[] = [
@@ -40,6 +43,10 @@ const HOTNEWS_PLATFORM_OPTIONS: { key: string; label: string }[] = [
     { key: 'tenxunwang', label: '腾讯网' },
 ];
 
+// 「主动消息 Push 加速」面板入口开关。底层逻辑（心跳、订阅、诊断）全部保留，
+// 这里设为 false 只是把设置页里的入口隐藏掉，想恢复改回 true 即可。
+const SHOW_PROACTIVE_PUSH_ACCEL_UI = false;
+
 const DiagRow: React.FC<{ label: string; value: string; bad?: boolean }> = ({ label, value, bad }) => (
     <div className="flex items-start justify-between gap-3">
         <span className="text-slate-500 shrink-0">{label}</span>
@@ -50,7 +57,7 @@ const DiagRow: React.FC<{ label: string; value: string; bad?: boolean }> = ({ la
 const Settings: React.FC = () => {
   const {
       apiConfig, updateApiConfig, closeApp, availableModels, setAvailableModels,
-      exportSystem, importSystem, addToast, resetSystem,
+      exportSystem, importSystem, addToast, showError, resetSystem,
       apiPresets, addApiPreset, removeApiPreset,
       sysOperation, // Get progress state
       realtimeConfig, updateRealtimeConfig, // 实时感知配置
@@ -84,6 +91,7 @@ const Settings: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false); // Used for completion now
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [showApiCallLog, setShowApiCallLog] = useState(false);
   const [showRealtimeModal, setShowRealtimeModal] = useState(false);
   const [showCloudModal, setShowCloudModal] = useState(false);
   const [showGithubModal, setShowGithubModal] = useState(false);
@@ -153,6 +161,12 @@ const Settings: React.FC = () => {
   const [mcdEnabled, setMcdEnabledState] = useState(() => isMcdEnabled());
   const [mcdTestStatus, setMcdTestStatus] = useState('');
   const [mcdTesting, setMcdTesting] = useState(false);
+
+  // 瑞幸 MCP (与麦当劳同构)
+  const [luckinToken, setLuckinTokenState] = useState(() => getLuckinToken());
+  const [luckinEnabled, setLuckinEnabledState] = useState(() => isLuckinEnabled());
+  const [luckinTestStatus, setLuckinTestStatus] = useState('');
+  const [luckinTesting, setLuckinTesting] = useState(false);
 
   // Proactive Push 加速器（Worker URL / VAPID 公钥写死在 proactivePushConfig.ts 常量里）
   const initialPushCfg = loadPushConfig();
@@ -470,7 +484,9 @@ const Settings: React.FC = () => {
       // Pass the File object directly to importSystem
       importSystem(file).catch(err => {
           console.error(err);
-          addToast(err.message || '恢复失败', 'error');
+          const details = err?.stack || err?.message || String(err || '未知错误');
+          showError('导入失败', details);
+          addToast('导入失败，错误信息已展开', 'error');
       });
       
       if (importInputRef.current) importInputRef.current.value = '';
@@ -517,7 +533,12 @@ const Settings: React.FC = () => {
 
   const handleCloudRestore = async (file: import('../types').CloudBackupFile) => {
       setShowCloudRestoreModal(false);
-      try { await cloudRestoreFromWebDAV(file); } catch { /* toast handled in context */ }
+      try {
+          await cloudRestoreFromWebDAV(file);
+      } catch (err: any) {
+          const details = err?.stack || err?.message || String(err || '未知错误');
+          showError('云端恢复失败', details);
+      }
   };
 
   // GitHub backup handlers — single "测试并连接" button does verify-token +
@@ -742,6 +763,37 @@ const Settings: React.FC = () => {
       }
   };
 
+  // 瑞幸 MCP (与麦当劳同构)
+  const handleLuckinTokenChange = (v: string) => {
+      setLuckinTokenState(v);
+      saveLuckinToken(v);
+      resetLuckinSession();
+      setLuckinTestStatus('');
+  };
+  const handleLuckinEnabledChange = (v: boolean) => {
+      setLuckinEnabledState(v);
+      saveLuckinEnabled(v);
+      if (!v) resetLuckinSession();
+  };
+  const testLuckinApi = async () => {
+      if (!luckinToken.trim()) { setLuckinTestStatus('请先填写 MCP Token'); return; }
+      setLuckinTesting(true);
+      setLuckinTestStatus('正在连接瑞幸 MCP...');
+      try {
+          const r = await testLuckinConnection();
+          if (r.ok) {
+              const names = (r.tools || []).map(t => t.name).slice(0, 6).join(', ');
+              setLuckinTestStatus(`✅ ${r.message}${names ? `\n工具: ${names}${(r.tools || []).length > 6 ? ' ...' : ''}` : ''}`);
+          } else {
+              setLuckinTestStatus(`❌ ${r.message}`);
+          }
+      } catch (e: any) {
+          setLuckinTestStatus(`❌ ${e?.message || String(e)}`);
+      } finally {
+          setLuckinTesting(false);
+      }
+  };
+
   return (
     <div className="h-full w-full bg-slate-50/50 flex flex-col font-light relative">
 
@@ -750,7 +802,7 @@ const Settings: React.FC = () => {
           <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center animate-fade-in">
               <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4 w-64">
                   <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
-                  <div className="text-sm font-bold text-slate-700">{sysOperation.message}</div>
+                  <div className="text-sm font-bold text-slate-700 text-center leading-relaxed whitespace-pre-wrap break-words max-w-full">{sysOperation.message}</div>
                   {sysOperation.progress > 0 && (
                       <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div className="h-full bg-primary transition-all duration-300" style={{ width: `${sysOperation.progress}%` }}></div>
@@ -1128,6 +1180,26 @@ const Settings: React.FC = () => {
             </div>
         </section>
 
+        {/* API 调用记录入口 — 点开看最近 5 天各 App / 角色 / 用途的调用明细 */}
+        <button
+            type="button"
+            onClick={() => setShowApiCallLog(true)}
+            className="w-full bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+        >
+            <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-slate-600 tracking-wider">API 调用记录</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">最近 5 天：时间 · 哪个 API · 哪个 App · 哪个角色 · 用途</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-300 shrink-0">
+                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+            </svg>
+        </button>
+
         {/* 其他 API 区域 — 非 LLM 类（语音、写歌等），不会跟随预设切换 */}
         <section className="bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50">
             <div className="flex items-center gap-2 mb-4">
@@ -1170,7 +1242,7 @@ const Settings: React.FC = () => {
 
                 <div className="group">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">MiniMax Key (可选)</label>
-                    <input type="password" value={localMiniMaxKey} onChange={(e) => setLocalMiniMaxKey(e.target.value)} placeholder="MiniMax API Secret（留空则复用 Key）" className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all" />
+                    <input type="password" name="minimax-api-secret" autoComplete="new-password" spellCheck={false} value={localMiniMaxKey} onChange={(e) => setLocalMiniMaxKey(e.target.value)} placeholder="MiniMax API Secret（留空则复用 Key）" className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all" />
                     <p className="text-[11px] text-slate-400 mt-1 pl-1">电话 / 音色查询优先使用这个 Key，空着时回退通用 Key。</p>
                 </div>
 
@@ -1194,7 +1266,7 @@ const Settings: React.FC = () => {
                             </svg>
                         </button>
                     </div>
-                    <input type="password" value={localAceStepKey} onChange={(e) => setLocalAceStepKey(e.target.value)} placeholder="r8_xxx（写歌 App 调 ACE-Step 出整首歌用）" className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all" />
+                    <input type="password" name="ace-step-api-token" autoComplete="new-password" spellCheck={false} value={localAceStepKey} onChange={(e) => setLocalAceStepKey(e.target.value)} placeholder="r8_xxx（写歌 App 调 ACE-Step 出整首歌用）" className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all" />
                     <p className="text-[11px] text-slate-400 mt-1 pl-1">填了之后写歌 App 的歌词页能一键调 ACE-Step 出真人声整首歌（约 ¥0.1/首，走 sfworker 代理免梯子）。</p>
 
                     {showAceStepGuide && (
@@ -1337,7 +1409,7 @@ const Settings: React.FC = () => {
         </section>
 
         {/* ───────── 主动消息 Push 加速器（开关） ───────── */}
-        {ppAvailable && (
+        {SHOW_PROACTIVE_PUSH_ACCEL_UI && ppAvailable && (
         <section className="bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1535,9 +1607,7 @@ const Settings: React.FC = () => {
             </p>
         </section>
 
-        <div className="text-center text-[10px] text-slate-300 pb-8 font-mono tracking-widest uppercase">
-            v2.2 (Realtime Awareness)
-        </div>
+        <VersionInfo />
       </div>
 
       {/* 主动消息 Push 加速 · 启用前确认 */}
@@ -1884,6 +1954,9 @@ const Settings: React.FC = () => {
         })()}
       </Modal>
 
+      {/* API 调用记录页面 */}
+      <ApiCallLogModal isOpen={showApiCallLog} onClose={() => setShowApiCallLog(false)} />
+
       {/* Preset Name Modal */}
       <Modal isOpen={showPresetModal} title="保存预设" onClose={() => setShowPresetModal(false)} footer={<button onClick={handleSavePreset} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">保存</button>}>
           <div className="space-y-2">
@@ -2205,6 +2278,46 @@ const Settings: React.FC = () => {
                               2. 粘贴到上面的输入框（仅存本地，<b>不会上传服务器</b>）<br/>
                               3. 下单类操作涉及真实支付，角色会先复述清单等你确认再下单<br/>
                               4. 仅中国大陆 (不含港澳台)
+                          </p>
+                      </div>
+                  )}
+              </div>
+
+              {/* 瑞幸 MCP */}
+              <div className="bg-blue-50/60 p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                          <Coffee size={20} weight="fill" className="text-blue-600" />
+                          <span className="text-sm font-bold text-blue-700">瑞幸咖啡</span>
+                          <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">官方 MCP</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" checked={luckinEnabled} onChange={e => handleLuckinEnabledChange(e.target.checked)} className="sr-only peer" />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                      </label>
+                  </div>
+                  <p className="text-[10px] text-blue-700/70 leading-relaxed">
+                      启用后，在聊天里点 + 号 → 第二页 → 瑞一杯，发送"瑞一杯"激活，角色就能为你查门店、搜咖啡、选规格、下单到店自提、查取餐码。
+                  </p>
+                  {luckinEnabled && (
+                      <div className="space-y-2">
+                          <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">MCP Token (个人)</label>
+                              <input type="password" value={luckinToken} onChange={e => handleLuckinTokenChange(e.target.value)} className="w-full bg-white/80 border border-blue-200 rounded-xl px-3 py-2 text-sm font-mono" placeholder="去 open.lkcoffee.com 登录后复制" />
+                          </div>
+                          <button onClick={testLuckinApi} disabled={luckinTesting} className="w-full py-2 bg-blue-100 text-blue-700 text-xs font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-60">
+                              {luckinTesting ? '测试中…' : '测试连接'}
+                          </button>
+                          {luckinTestStatus && (
+                              <div className={`p-2 rounded-lg text-[11px] whitespace-pre-line leading-relaxed ${luckinTestStatus.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : luckinTestStatus.startsWith('❌') ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-600'}`}>
+                                  {luckinTestStatus}
+                              </div>
+                          )}
+                          <p className="text-[10px] text-blue-700/70 leading-relaxed">
+                              1. 访问 <a href="https://open.lkcoffee.com" target="_blank" className="underline">open.lkcoffee.com</a> 用瑞幸账号登录，复制 Token（有效期约 1 个月）<br/>
+                              2. 粘贴到上面的输入框（仅存本地，<b>不会上传服务器</b>）<br/>
+                              3. 下单类操作涉及真实支付，角色会先复述清单等你确认再下单<br/>
+                              4. 上游需经 Worker 代理 (/mcp/luckin)，请确保已部署最新 worker
                           </p>
                       </div>
                   )}

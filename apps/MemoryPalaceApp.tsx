@@ -224,6 +224,13 @@ const Icon: React.FC<{ name: string; size?: number; style?: React.CSSProperties 
                     <path d="M18 6 6 18M6 6l12 12" />
                 </svg>
             );
+        case 'pencil':
+            return (
+                <svg {...p}>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+            );
         case 'book':
             return (
                 <svg {...p}>
@@ -394,7 +401,7 @@ const labelClass = "text-[10px] font-bold text-slate-400 uppercase tracking-wide
 // ─── 主组件 ───────────────────────────────────────────
 
 export default function MemoryPalaceApp() {
-    const { activeCharacterId, characters, updateCharacter, setActiveCharacterId, closeApp, apiPresets, userProfile, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, updateRemoteVectorConfig, addToast } = useOS();
+    const { activeCharacterId, characters, updateCharacter, setActiveCharacterId, closeApp, apiPresets, userProfile, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, updateRemoteVectorConfig, addToast, apiConfig } = useOS();
     const char = characters.find(c => c.id === activeCharacterId);
 
     const [view, setView] = useState<'picker' | 'palace' | 'room' | 'memory' | 'settings' | 'globalSettings' | 'all' | 'boxes'>('picker');
@@ -416,6 +423,11 @@ export default function MemoryPalaceApp() {
     const [allBoxes, setAllBoxes] = useState<EventBox[]>([]);
     const [expandedBoxId, setExpandedBoxId] = useState<string | null>(null);
     const [boxMembers, setBoxMembers] = useState<Record<string, { summary: MemoryNode | null; live: MemoryNode[]; archived: MemoryNode[] }>>({});
+    // 事件盒名/tag 手动编辑状态（box.name / box.tags 仅用于展示抬头，不参与召回打分）
+    const [editingBoxId, setEditingBoxId] = useState<string | null>(null);
+    const [boxNameDraft, setBoxNameDraft] = useState('');
+    const [boxTagsDraft, setBoxTagsDraft] = useState('');
+    const [savingBox, setSavingBox] = useState(false);
 
     // 迁移状态
     const [migrating, setMigrating] = useState(false);
@@ -588,6 +600,35 @@ export default function MemoryPalaceApp() {
         // 依赖用原始字符串字段，避免 memoryPalaceConfig 对象每次新引用都重跑
     }, [char?.id, (char as any)?.personalityStyle, view, lightLLMBaseUrl, lightLLMApiKey]);
 
+    // 手动触发 AI 评估（认知参数设置区的按钮）。和自动检测共用 detecting/pending
+    // 两个状态，所以结果同样走"分析中 → 确认"两屏流程。副 API 没配时退回主
+    // apiConfig —— 跟 useChatAI 里 mpLLM 的 fallback 策略一致。
+    const manualDetectPersonality = () => {
+        if (!char || detectingPersonality) return;
+        const llm = (lightLLMBaseUrl && lightLLMApiKey)
+            ? memoryPalaceConfig.lightLLM
+            : (apiConfig?.baseUrl && apiConfig?.apiKey
+                ? { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model }
+                : null);
+        if (!llm) {
+            addToast('请先配置副 API（记忆宫殿全局设置）或主 API', 'error');
+            return;
+        }
+        const detectingCharId = char.id;
+        const persona = [char.systemPrompt || '', char.worldview || ''].filter(Boolean).join('\n');
+        setDetectingPersonality(true);
+        detectPersonalityStyle(detectingCharId, char.name, persona, llm)
+            .then(result => {
+                setPendingPersonality(result);
+                setPendingPersonalityCharId(detectingCharId);
+            })
+            .catch(e => {
+                console.warn('🎭 手动性格评估失败:', e?.message || e);
+                addToast(`评估失败：${e?.message || e}`, 'error');
+            })
+            .finally(() => setDetectingPersonality(false));
+    };
+
     // 判断是否已配置（使用全局配置）
     const hasEmbeddingConfig = !!(memoryPalaceConfig.embedding.baseUrl && memoryPalaceConfig.embedding.apiKey);
     const hasLightApi = !!(memoryPalaceConfig.lightLLM.baseUrl && memoryPalaceConfig.lightLLM.apiKey);
@@ -685,6 +726,40 @@ export default function MemoryPalaceApp() {
             loadStats();
         } catch (e: any) {
             alert(`复活失败：${e?.message || e}`);
+        }
+    };
+
+    /** 进入/退出某盒的名字+tag 编辑态。box.name/box.tags 只决定召回时的展示抬头，
+     *  不参与向量/BM25 检索打分（检索只认成员节点的 content/tags），改它不影响召回结果。 */
+    const startEditBoxMeta = (box: EventBox) => {
+        setEditingBoxId(box.id);
+        setBoxNameDraft(box.name || '');
+        setBoxTagsDraft(box.tags.join(', '));
+    };
+    const cancelEditBoxMeta = () => {
+        setEditingBoxId(null);
+        setBoxNameDraft('');
+        setBoxTagsDraft('');
+    };
+    const handleSaveBoxMeta = async (box: EventBox) => {
+        if (!char) return;
+        setSavingBox(true);
+        try {
+            const fresh = (await EventBoxDB.getById(box.id)) || box;
+            // 名字留空 → 回退默认值，避免存出空标题
+            fresh.name = boxNameDraft.trim() || '未命名事件';
+            fresh.tags = boxTagsDraft.split(/[,，]/).map(t => t.trim()).filter(Boolean).slice(0, 20);
+            fresh.updatedAt = Date.now();
+            await EventBoxDB.save(fresh);
+            // 刷新盒列表（保持原排序：按 updatedAt 倒序）
+            const boxes = await EventBoxDB.getByCharId(char.id);
+            boxes.sort((a, b) => b.updatedAt - a.updatedAt);
+            setAllBoxes(boxes);
+            cancelEditBoxMeta();
+        } catch (e: any) {
+            alert(`保存失败：${e?.message || e}`);
+        } finally {
+            setSavingBox(false);
         }
     };
 
@@ -2920,11 +2995,15 @@ create table if not exists memory_vectors (
                         <div>
                             <label className={labelClass}>认知风格</label>
                             <select
-                                value={(char as any).personalityStyle || 'emotional'}
+                                value={(char as any).personalityStyle || ''}
                                 onChange={e => updateCharacter(char.id, { personalityStyle: e.target.value } as any)}
                                 className={inputClass}
                                 style={{ fontFamily: 'inherit', fontSize: 12 }}
                             >
+                                {/* 未评估时如实显示，而不是假装成"情感型"（检索时按情感型默认值跑） */}
+                                {!(char as any).personalityStyle && (
+                                    <option value="" disabled>未评估（默认按情感型处理）</option>
+                                )}
                                 <option value="emotional">情感型</option>
                                 <option value="narrative">叙事型</option>
                                 <option value="imagery">意象型</option>
@@ -2932,7 +3011,11 @@ create table if not exists memory_vectors (
                             </select>
                         </div>
                         <div>
-                            <label className={labelClass}>反刍倾向 {((char as any).ruminationTendency ?? 0.3).toFixed(1)}</label>
+                            <label className={labelClass}>
+                                反刍倾向 {(char as any).ruminationTendency == null
+                                    ? '未评估（默认 0.3）'
+                                    : ((char as any).ruminationTendency).toFixed(1)}
+                            </label>
                             <input
                                 type="range" min="0" max="1" step="0.1"
                                 value={(char as any).ruminationTendency ?? 0.3}
@@ -2940,8 +3023,22 @@ create table if not exists memory_vectors (
                                 style={{ width: '100%' }}
                             />
                         </div>
+                        <button
+                            onClick={manualDetectPersonality}
+                            disabled={detectingPersonality}
+                            style={{
+                                width: '100%', padding: '10px 0', borderRadius: 10,
+                                border: '1px solid #ddd6fe', background: '#f5f3ff',
+                                fontSize: 12, fontWeight: 700, color: '#7c3aed',
+                                cursor: detectingPersonality ? 'wait' : 'pointer',
+                                opacity: detectingPersonality ? 0.6 : 1,
+                            }}
+                        >
+                            {detectingPersonality ? '评估中…' : 'AI 评估认知参数'}
+                        </button>
                         <div style={{ fontSize: 10, color: '#b0b0b0', lineHeight: 1.5 }}>
-                            由 AI 根据角色人设自动判断，通常无需手动修改。
+                            认知风格影响记忆联想偏好，反刍倾向影响想起旧事的概率。
+                            可手动调整，也可让 AI 根据人设评估（结果需确认后才生效）。
                         </div>
                     </div>
                 </details>
@@ -3669,6 +3766,19 @@ create table if not exists memory_vectors (
                                             <span>{box.name || '未命名'}</span>
                                             {box.sealed && <span style={{ fontSize: 10, marginLeft: 4, padding: '1px 6px', borderRadius: 4, background: '#fef3c7', color: '#92400e' }}>已封盒</span>}
                                         </div>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); editingBoxId === box.id ? cancelEditBoxMeta() : startEditBoxMeta(box); }}
+                                            title="编辑盒名和标签"
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                                                border: '1px solid #c7d2fe',
+                                                background: editingBoxId === box.id ? '#e0e7ff' : '#fff',
+                                                color: '#6366f1', cursor: 'pointer', padding: 0,
+                                            }}
+                                        >
+                                            <Icon name="pencil" size={12} />
+                                        </button>
                                         <div style={{ fontSize: 11, color: '#6366f1' }}>{expanded ? '▲' : '▼'}</div>
                                     </div>
                                     {box.tags.length > 0 && (
@@ -3688,6 +3798,66 @@ create table if not exists memory_vectors (
                                         <span>更新 {new Date(box.updatedAt).toLocaleDateString('zh-CN')}</span>
                                     </div>
                                 </div>
+
+                                {editingBoxId === box.id && (
+                                    <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e0e7ff' }}>
+                                        <div style={{ fontSize: 10, color: '#6b7280', margin: '10px 0 8px', lineHeight: 1.5 }}>
+                                            盒名和标签仅用于召回时的展示抬头，不参与检索打分（改它不影响召回哪些记忆）。
+                                            注意：盒子之后再次压缩时，副 API 可能重新生成盒名/标签覆盖你的修改，不满意再改一次即可。
+                                        </div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: '#4338ca' }}>盒名</label>
+                                        <input
+                                            value={boxNameDraft}
+                                            onChange={e => setBoxNameDraft(e.target.value)}
+                                            placeholder="未命名事件"
+                                            maxLength={40}
+                                            style={{
+                                                width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10,
+                                                padding: '6px 8px', borderRadius: 6, border: '1px solid #c7d2fe',
+                                                fontSize: 13, outline: 'none',
+                                            }}
+                                        />
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: '#4338ca' }}>标签（逗号分隔，最多 20 个）</label>
+                                        <input
+                                            value={boxTagsDraft}
+                                            onChange={e => setBoxTagsDraft(e.target.value)}
+                                            placeholder="如：买衣服, 退货, 流行款"
+                                            style={{
+                                                width: '100%', boxSizing: 'border-box', marginTop: 4, marginBottom: 10,
+                                                padding: '6px 8px', borderRadius: 6, border: '1px solid #c7d2fe',
+                                                fontSize: 13, outline: 'none',
+                                            }}
+                                        />
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <button
+                                                onClick={() => handleSaveBoxMeta(box)}
+                                                disabled={savingBox}
+                                                style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                    fontSize: 12, padding: '5px 12px', borderRadius: 6, border: 'none',
+                                                    background: '#6366f1', color: '#fff',
+                                                    cursor: savingBox ? 'default' : 'pointer', opacity: savingBox ? 0.6 : 1,
+                                                }}
+                                            >
+                                                <Icon name="check" size={12} />
+                                                <span>{savingBox ? '保存中…' : '保存'}</span>
+                                            </button>
+                                            <button
+                                                onClick={cancelEditBoxMeta}
+                                                disabled={savingBox}
+                                                style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                    fontSize: 12, padding: '5px 12px', borderRadius: 6,
+                                                    border: '1px solid #d1d5db', background: '#fff', color: '#6b7280',
+                                                    cursor: savingBox ? 'default' : 'pointer',
+                                                }}
+                                            >
+                                                <Icon name="x" size={12} />
+                                                <span>取消</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {expanded && members && (
                                     <div style={{ padding: '0 12px 12px', borderTop: '1px solid #e0e7ff' }}>

@@ -11,8 +11,17 @@
  * 抽到这里后单点维护。
  */
 
-import type { Message } from '../types';
+import type { Message, Emoji } from '../types';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
+
+/**
+ * 表情包消息的 content 存的是图床 URL，本身不带名字。拼上下文时要靠这个反查出
+ * 当初设的表情名（关键字），非识图模型才能"看见"对方发了什么表情。
+ * 私聊主历史、群聊主历史都从这里取名，避免一处查一处漏（群聊曾漏查，只给 [表情包]）。
+ */
+export function stickerNameFromUrl(emojis: Emoji[], url: string): string {
+    return emojis.find(e => e.url === url)?.name || '未知表情';
+}
 
 /** 仅返回内容体（不加 sender / timestamp）。调用方自行拼外层。 */
 export function normalizeMessageContent(
@@ -51,6 +60,14 @@ export function normalizeMessageContent(
                     `第${i + 1}题"${q.question}"：${userName}选"${q.userAnswer}"（${q.isCorrect ? '✓' : '✗'}）${q.review ? `，${charName}评语：${q.review}` : ''}`
                 ).join('；') || '';
                 return `[白色情人节默契测验] ${userName}完成了${charName}出的白色情人节测验，答对${card.score}/${card.total}题，${passedStr}。${questionsText}${card.finalDialogue ? `。${charName}最终评价：${card.finalDialogue}` : ''}`;
+            }
+            if (card?.type === 'diary_card') {
+                const uName = card.userName || userName;
+                const userTextPart = (card.userText || '').trim();
+                const charTextPart = (card.charText || '').trim();
+                const userBlock = userTextPart ? `${uName}写道：「${userTextPart}」` : `${uName}那页是空的`;
+                const charBlock = charTextPart ? `${charName}回道：「${charTextPart}」` : `${charName}那页是空的`;
+                return `[交换日记 ${card.date || ''}] ${uName}和${charName}今天通过【交换日记】交换了一篇日记。${userBlock} ${charBlock}`;
             }
             if (card?.type === 'like520_card') {
                 // 520 特别活动：那个"小小的下午"+ char 给 user 的信。信的内容是这次活动的母题落点，
@@ -102,6 +119,27 @@ export function normalizeMessageContent(
         return '[音乐卡片]';
     }
 
+    // TRPG 跑团片段：从 TRPG 游戏里多选转发到聊天的剧情。必须翻成完整可读文本，
+    // 让上下文 / 归档 / palace 都能读到"和用户一起玩游戏时发生了什么"，并标明来自 TRPG。
+    if (type === 'trpg_card') {
+        const t = msg.metadata?.trpg as {
+            gameTitle?: string;
+            userName?: string;
+            partyNames?: string[];
+            excerpt?: Array<{ speaker?: string; text?: string }>;
+        } | undefined;
+        if (t) {
+            const others = (t.partyNames || []).filter(n => n && n !== charName);
+            const withPart = others.length ? `（和${others.join('、')}）` : '';
+            const lines = (t.excerpt || [])
+                .map(e => `${e.speaker || ''}: ${(e.text || '').replace(/\s*\n+\s*/g, ' ').trim()}`)
+                .filter(s => s.trim() !== ':')
+                .join('\n');
+            return `[TRPG游戏片段] 这是${charName}和${t.userName || userName}${withPart}一起玩《${t.gameTitle || 'TRPG'}》跑团时的一段剧情（从游戏里转发到聊天，相当于你们一起玩游戏的共同回忆）：\n${lines}`;
+        }
+        return '[TRPG游戏片段]';
+    }
+
     // 默认：text / 未知类型 → 用 content
     return msg.content || '';
 }
@@ -144,5 +182,5 @@ export function isMessageSemanticallyRelevant(msg: Message): boolean {
     const type = msg.type as string;
     if (type === 'image' || type === 'emoji' || type === 'voice') return false;
     // 有内容或有结构化 metadata 才算
-    return !!(msg.content?.trim() || msg.metadata?.scoreCard || msg.metadata?.amount || msg.metadata?.song);
+    return !!(msg.content?.trim() || msg.metadata?.scoreCard || msg.metadata?.amount || msg.metadata?.song || msg.metadata?.trpg);
 }

@@ -80,7 +80,7 @@ const loadLocalAlbum = (): Song[] => {
   } catch { return []; }
 };
 const saveLocalAlbum = (songs: Song[]) => {
-  try { localStorage.setItem(LS_LOCAL_ALBUM_KEY, JSON.stringify(songs)); } catch { }
+  try { localStorage.setItem(LS_LOCAL_ALBUM_KEY, JSON.stringify(songs)); } catch {}
 };
 const DEFAULT_WORKER = 'https://sullymeow.ccwu.cc';
 
@@ -112,7 +112,7 @@ const loadCfg = (): MusicCfg => {
     const migrated = migrateWorkerUrl(cfg.workerUrl);
     if (migrated !== cfg.workerUrl) {
       cfg.workerUrl = migrated;
-      try { localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg)); } catch { }
+      try { localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg)); } catch {}
     }
     return cfg;
   } catch { return MUSIC_DEFAULT_CFG; }
@@ -149,7 +149,7 @@ let __musicHooks: PostProcessMusicHooks | null = null;
 export const loadMusicHooks = (): PostProcessMusicHooks | null => __musicHooks;
 
 const saveCfg = (cfg: MusicCfg) => {
-  try { localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg)); } catch { }
+  try { localStorage.setItem(LS_CFG_KEY, JSON.stringify(cfg)); } catch {}
 };
 
 const loadState = (): { queue: Song[]; idx: number } => {
@@ -162,7 +162,7 @@ const loadState = (): { queue: Song[]; idx: number } => {
 };
 
 const saveState = (queue: Song[], idx: number) => {
-  try { localStorage.setItem(LS_STATE_KEY, JSON.stringify({ queue, idx })); } catch { }
+  try { localStorage.setItem(LS_STATE_KEY, JSON.stringify({ queue, idx })); } catch {}
 };
 
 export const parseLyric = (txt: string): LyricLine[] => {
@@ -416,9 +416,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [lyric, progress]);
 
   // toast 转发
-  const toastHandlerRef = useRef<(msg: string, type?: 'info' | 'success' | 'error') => void>(() => { });
+  const toastHandlerRef = useRef<(msg: string, type?: 'info' | 'success' | 'error') => void>(() => {});
   const toast = useCallback((msg: string, type: 'info' | 'success' | 'error' = 'info') => {
-    try { toastHandlerRef.current(msg, type); } catch { }
+    try { toastHandlerRef.current(msg, type); } catch {}
   }, []);
   const setToastHandler = useCallback((h: (msg: string, type?: 'info' | 'success' | 'error') => void) => {
     toastHandlerRef.current = h;
@@ -458,7 +458,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     musicApi.call(cfg, '/likelist', {}).then(r => {
       const ids: number[] = r?.ids || r?.data?.ids || [];
       setLikedSet(new Set(ids));
-    }).catch(() => { });
+    }).catch(() => {});
   }, [cfg]);
 
   // 「喜欢」逻辑分两条路:
@@ -531,7 +531,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const idxRef = useRef(idx); idxRef.current = idx;
   const modeRef = useRef(playMode); modeRef.current = playMode;
   const cfgRef = useRef(cfg); cfgRef.current = cfg;
-  const endedHandlerRef = useRef<() => void>(() => { });
+  const endedHandlerRef = useRef<() => void>(() => {});
 
   // 初始化 audio（仅 Provider 生命周期创建一次）
   useEffect(() => {
@@ -562,7 +562,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       a.removeEventListener('loadedmetadata', onMeta);
       a.removeEventListener('error', onErr);
       a.removeEventListener('ended', onEnd);
-      try { a.pause(); a.src = ''; } catch { }
+      try { a.pause(); a.src = ''; } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -603,7 +603,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const prevSrc = a.src;
         if (prevSrc.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
         a.src = URL.createObjectURL(blob);
-        a.play().catch(() => { });
+        a.play().catch(() => {});
 
         // ── 本地歌词时间分布 ──
         // MiniMax / ACE-Step 不返回带时间戳的歌词，但我们写歌时就有原文。
@@ -662,7 +662,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               artist: song.artists,
               album: song.album,
             });
-          } catch { }
+          } catch {}
         }
         setLoadingSong(false);
         return;
@@ -680,7 +680,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       const a = audioRef.current!;
       a.src = url.replace(/^http:\/\//i, 'https://');
-      a.play().catch(() => { });
+      a.play().catch(() => {});
       if (lyricRes) {
         setLyric(parseLyric(lyricRes?.lrc?.lyric || ''));
         setTlyric(parseLyric(lyricRes?.tlyric?.lyric || ''));
@@ -697,7 +697,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               { src: song.albumPic, sizes: '512x512', type: 'image/jpeg' },
             ] : [],
           });
-        } catch { }
+        } catch {}
       }
     } catch (e: any) {
       toast(`播放失败：${e.message}`, 'error');
@@ -732,7 +732,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     endedHandlerRef.current = () => {
       if (modeRef.current === 'single') {
-        const a = audioRef.current; if (a) { a.currentTime = 0; a.play().catch(() => { }); }
+        const a = audioRef.current; if (a) { a.currentTime = 0; a.play().catch(() => {}); }
         return;
       }
       nextSong();
@@ -748,7 +748,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (cur) playSong(cur, { alsoSetQueue: false });
       return;
     }
-    if (a.paused) a.play().catch(() => { }); else a.pause();
+    if (a.paused) a.play().catch(() => {}); else a.pause();
   }, [playSong]);
 
   const seek = useCallback((pct: number) => {
@@ -769,7 +769,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (cur) playSong(cur, { alsoSetQueue: false });
           return;
         }
-        if (a.paused) a.play().catch(() => { });
+        if (a.paused) a.play().catch(() => {});
       });
       ms.setActionHandler('pause', () => {
         const a = audioRef.current; if (a && !a.paused) a.pause();
@@ -786,7 +786,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 播放状态同步到 mediaSession
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
-    try { (navigator as any).mediaSession.playbackState = playing ? 'playing' : 'paused'; } catch { }
+    try { (navigator as any).mediaSession.playbackState = playing ? 'playing' : 'paused'; } catch {}
   }, [playing]);
 
   // 把当前播放状态写到模块级快照，供非 React 调用者（OSContext.runProactive

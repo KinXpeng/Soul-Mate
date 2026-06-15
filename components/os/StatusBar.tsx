@@ -26,6 +26,7 @@ const StatusBar: React.FC = () => {
 
   // Use content color from theme
   const textColor = theme.contentColor || '#ffffff';
+  const acnh = theme.skin === 'animalcrossing'; // 动森彩蛋：电量条用叶绿色
 
   useEffect(() => {
     const initBattery = async () => {
@@ -65,7 +66,7 @@ const StatusBar: React.FC = () => {
           className="w-full flex justify-between items-start px-6 text-[11px] font-bold z-50 absolute top-0 left-0 bg-transparent transition-colors duration-500 select-none pointer-events-none"
           style={{ 
               color: textColor,
-              paddingTop: 'max(4px, env(safe-area-inset-top))',
+              paddingTop: 'max(4px, var(--safe-top))',
               height: 'auto',
               minHeight: '2rem'
           }}
@@ -83,8 +84,8 @@ const StatusBar: React.FC = () => {
           <div className="flex items-center gap-1">
             <span>{batteryLevel}%</span>
             <div className="w-5 h-2.5 border border-current rounded-[3px] p-[1px] relative opacity-80 flex items-center">
-              <div 
-                  className={`h-full rounded-[1px] ${isCharging ? 'bg-green-400' : 'bg-current'}`} 
+              <div
+                  className={`h-full rounded-[1px] ${isCharging ? 'bg-green-400' : acnh ? 'bg-[#7cba4c]' : 'bg-current'}`}
                   style={{ width: `${batteryLevel}%` }}
               ></div>
               {isCharging && (
@@ -104,7 +105,7 @@ const StatusBar: React.FC = () => {
           <button 
               onClick={() => setShowLogModal(true)} 
               className="fixed left-1/2 -translate-x-1/2 z-[60] bg-red-500/90 text-white rounded-full px-4 py-1.5 text-[10px] font-bold shadow-lg animate-pulse flex items-center gap-1.5 backdrop-blur-md border border-white/20 pointer-events-auto"
-              style={{ top: 'calc(env(safe-area-inset-top) + 2.5rem)' }}
+              style={{ top: 'calc(var(--chrome-top) + 1rem)' }}
           >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
                   <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />

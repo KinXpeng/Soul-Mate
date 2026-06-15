@@ -1,5 +1,4 @@
 # SullyOS // 手抓糯米机
-
 <div align="center">
 <img width="800" alt="banner" src="https://sharkpan.xyz/f/ylWpfN/sDN.png" />
 </div>
@@ -18,40 +17,40 @@
 
 ## 功能概览（能用的东西）
 
-| 功能              | 说明                                             |
-| ----------------- | ------------------------------------------------ |
-| 💬 **Message**    | 跟角色聊天，支持文字/图片/表情包                 |
-| 📞 **电话**       | 语音通话 + TTS（MiniMax 音色），可以听到角色声音 |
-| 🏠 **小小窝**     | 布置房间，放角色进去挂机，看着它们发呆           |
-| 👥 **群聊**       | 拉一群角色互相唠嗑，看它们修罗场                 |
-| 📓 **交换日记**   | 角色会偷偷写关于你的事，可能写你坏话             |
-| 📅 **时光契约**   | 定时任务，让角色记住提醒，虽然可能会忘           |
-| 🔥 **Spark**      | 社交媒体模拟，角色会发朋友圈                     |
-| 🎮 **TRPG**       | 跑团模式，掷骰子冒险                             |
-| 🌍 **世界书**     | 挂载设定集，扩展角色知识库                       |
-| 🔍 **查手机**     | 检查角色手机里的秘密，发现它们背着你干什么       |
-| 🏦 **存钱罐**     | 虚拟货币系统，虽然钱是假的                       |
-| 📚 **自习室**     | 专注学习模式，让角色监督你学习                   |
-| ✍️ **笔友会**     | 写小说/找笔友，文艺青年专属                      |
-| 🎵 **写歌**       | 歌词创作工具，当赛博周杰伦                       |
-| 📖 **攻略本**     | 角色攻略用户的小游戏，反向攻略                   |
-| 🏙️ **都市人生**   | 模拟人生玩法，和角色一起过家家                   |
-| ✨ **特别时光**   | 节日/特殊事件，情人节什么的                      |
-| 🎨 **气泡工坊**   | 做聊天气泡主题，搞个性化                         |
-| 👤 **外观**       | 改系统外观，让它看起来像你的手机                 |
-| 🗺️ **自由活动**   | 角色自主活动，它们会自己玩                       |
-| 📷 **小红书图库** | 存图发小红书用，虽然不知道为什么要有这个         |
+| 功能 | 说明 |
+|------|------|
+| 💬 **Message** | 跟角色聊天，支持文字/图片/表情包 |
+| 📞 **电话** | 语音通话 + TTS（MiniMax 音色），可以听到角色声音 |
+| 🏠 **小小窝** | 布置房间，放角色进去挂机，看着它们发呆 |
+| 👥 **群聊** | 拉一群角色互相唠嗑，看它们修罗场 |
+| 📓 **交换日记** | 角色会偷偷写关于你的事，可能写你坏话 |
+| 📅 **时光契约** | 定时任务，让角色记住提醒，虽然可能会忘 |
+| 🔥 **Spark** | 社交媒体模拟，角色会发朋友圈 |
+| 🎮 **TRPG** | 跑团模式，掷骰子冒险 |
+| 🌍 **世界书** | 挂载设定集，扩展角色知识库 |
+| 🔍 **查手机** | 检查角色手机里的秘密，发现它们背着你干什么 |
+| 🏦 **存钱罐** | 虚拟货币系统，虽然钱是假的 |
+| 📚 **自习室** | 专注学习模式，让角色监督你学习 |
+| ✍️ **笔友会** | 写小说/找笔友，文艺青年专属 |
+| 🎵 **写歌** | 歌词创作工具，当赛博周杰伦 |
+| 📖 **攻略本** | 角色攻略用户的小游戏，反向攻略 |
+| 🏙️ **都市人生** | 模拟人生玩法，和角色一起过家家 |
+| ✨ **特别时光** | 节日/特殊事件，情人节什么的 |
+| 🎨 **气泡工坊** | 做聊天气泡主题，搞个性化 |
+| 👤 **外观** | 改系统外观，让它看起来像你的手机 |
+| 🗺️ **自由活动** | 角色自主活动，它们会自己玩 |
+| 📷 **小红书图库** | 存图发小红书用，虽然不知道为什么要有这个 |
 
 ### 这段时间新上的 App（刚更新的热乎货）
 
-| 功能                          | 说明                                                                                                                       |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 🧠 **记忆宫殿**               | 向量化长期记忆 + Russell 情感空间 + 熟悉度加成，角色真·记得住你说过的每件事。支持一键清空、全自动巩固、独立 API 通道       |
-| 🎧 **音乐（电波小屋）**       | 接网易云 API，能搜歌/听歌/看歌词。角色会"一起听"，背景音的歌词会注进它的精神世界，让它能顺着歌聊天（不是每句都尬评，放心） |
-| 💤 **记忆潜行 (Memory Dive)** | 像素 RPG 3DS 风格双屏，房间剧本模式一次预生成整个探访流程，梦核氛围面板 + 小对话框分页 + 选项浮层。潜进角色的记忆里逛一圈  |
-| 🗓️ **见面 (Date)**            | 和角色"见面"的 App，配合 MiniMax TTS 可以做线下约会模拟                                                                    |
-| 📇 **档案 (User)**            | 用户档案中枢，管理你的人设、关系标签、和角色的印象互写                                                                     |
-| ❓ **使用帮助 (FAQ)**         | 内建的使用说明，不用再到处翻文档                                                                                           |
+| 功能 | 说明 |
+|------|------|
+| 🧠 **记忆宫殿** | 向量化长期记忆 + Russell 情感空间 + 熟悉度加成，角色真·记得住你说过的每件事。支持一键清空、全自动巩固、独立 API 通道 |
+| 🎧 **音乐（电波小屋）** | 接网易云 API，能搜歌/听歌/看歌词。角色会"一起听"，背景音的歌词会注进它的精神世界，让它能顺着歌聊天（不是每句都尬评，放心）|
+| 💤 **记忆潜行 (Memory Dive)** | 像素 RPG 3DS 风格双屏，房间剧本模式一次预生成整个探访流程，梦核氛围面板 + 小对话框分页 + 选项浮层。潜进角色的记忆里逛一圈 |
+| 🗓️ **见面 (Date)** | 和角色"见面"的 App，配合 MiniMax TTS 可以做线下约会模拟 |
+| 📇 **档案 (User)** | 用户档案中枢，管理你的人设、关系标签、和角色的印象互写 |
+| ❓ **使用帮助 (FAQ)** | 内建的使用说明，不用再到处翻文档 |
 
 ## 本地运行（把它弄起来）
 
@@ -97,11 +96,11 @@ npm run dev
 
 打开应用 → 底部 Dock 的「设置」→ 填入你的 API 信息：
 
-| 字段         | 说明                                                         |
-| ------------ | ------------------------------------------------------------ |
-| **Base URL** | OpenAI 格式的 API 地址，如 `https://api.openai.com/v1`       |
-| **API Key**  | 你的密钥，别告诉别人                                         |
-| **Model**    | 模型名，如 `gpt-4o-mini`、`claude-3-sonnet`、`deepseek-chat` |
+| 字段 | 说明 |
+|------|------|
+| **Base URL** | OpenAI 格式的 API 地址，如 `https://api.openai.com/v1` |
+| **API Key** | 你的密钥，别告诉别人 |
+| **Model** | 模型名，如 `gpt-4o-mini`、`claude-3-sonnet`、`deepseek-chat` |
 
 **MiniMax TTS（可选）**：想在「电话」里用语音功能，需要在设置里填 MiniMax 的 API Key 和 Group ID。不然你就只能看文字，听不到我性感的声音。
 
@@ -127,12 +126,11 @@ npm run cap:android
 **主要存在你本地浏览器里**（IndexedDB）。
 
 - 聊天记录 ✅ 本地
-- 角色设定 ✅ 本地
+- 角色设定 ✅ 本地  
 - 上传的图片 ✅ 本地
 - 你的世界书 ✅ 本地
 
 **云端备份**（可选）：
-
 - 重要数据会同步到 Neon PostgreSQL，防止你手滑删库
 
 换浏览器 = 本地数据消失。建议定期用「设置」里的导出功能备份。删了我 = 你会后悔，数据库都在咕咕咕。
@@ -206,12 +204,12 @@ sw@<service-worker 版本>
 
 这玩意叫 `BuildBadge`（`components/BuildBadge.tsx`），用来一眼区分线上版和 fork / 开发版，免得拿半成品截图当正式版到处发。可见性在 **构建时** 决定：
 
-| 情况                        | 显示？                                   |
-| --------------------------- | ---------------------------------------- |
-| 在 `main` / `master` 上构建 | ❌ 默认隐藏（视为正式发布）              |
-| 其他分支上构建              | ✅ 默认显示                              |
-| `VITE_HIDE_BUILD_BADGE=1`   | ❌ 强制隐藏（覆盖默认）                  |
-| `VITE_SHOW_BUILD_BADGE=1`   | ✅ 强制显示（在 release 分支本地调试用） |
+| 情况 | 显示？ |
+|------|--------|
+| 在 `main` / `master` 上构建 | ❌ 默认隐藏（视为正式发布）|
+| 其他分支上构建 | ✅ 默认显示 |
+| `VITE_HIDE_BUILD_BADGE=1` | ❌ 强制隐藏（覆盖默认）|
+| `VITE_SHOW_BUILD_BADGE=1` | ✅ 强制显示（在 release 分支本地调试用）|
 
 CI detached HEAD 状态会按 `GITHUB_REF_NAME` → `VERCEL_GIT_COMMIT_REF` → `CF_PAGES_BRANCH` 顺序识别分支，所以 Vercel / Cloudflare Pages / GitHub Actions 部署 release 分支会自动隐藏，不用手动配。
 
@@ -224,6 +222,26 @@ VITE_HIDE_BUILD_BADGE=1 npm run build
 或者在 Vercel / Cloudflare Pages 的环境变量面板挂一条 `VITE_HIDE_BUILD_BADGE=1`，省得每次记。
 
 > 叮叮叮！把 badge 藏了不会让你的 fork 变正式版本，但截图会干净点。
+
+### 开发调试面板（DevDebugPanel）
+
+非 release 分支构建时（即 `__BUILD_BADGE_VISIBLE__` 为 `true`），右下角除了 build badge 还会多一颗小扳手浮球。点开就是 **DevDebugPanel**——一个可拖拽的调试面板，专治"角色怎么又不说话了"综合症。
+
+面板里有两类开关——**行为开关**（改变跑的逻辑）和**分类捕获**（勾哪类抓哪类日志）：
+
+| 开关 | 类型 | 干嘛的 |
+|------|------|--------|
+| **Skip Prompt Build** | 行为 | 跳过 `ContextBuilder` 的整套 prompt 组装，直接把你的裸消息怼给 LLM。用来避免它被人设束缚、不配合你输出你想要的调试内容 |
+| **Skip Emotion Eval** | 行为 | 跳过消息落库后的情绪评估管线（Russell 空间那套）。不需要调试情绪的时候可以打开（不配置日程也行）。 |
+| **记录 LLM 日志** | 捕获 | 勾上就录制所有 LLM 请求/响应（含 Instant Push 通道）。密钥字段自动 `<redacted>` 不用手动打码。以后想抓别的（MCP 调用之类）就再加一个捕获类，互不串桶 |
+
+捕获日志同时写 `localStorage` 和内存，各类混存、全局最多保留 100 条 / 1 MB（先到先淘汰）。为了省空间 / 隐私，**长文本默认写入时就折叠成前 10 字 + `...`**（那堆 system prompt 和聊天历史不会塞满 localStorage）；真要看完整请求体，打开「记录完整内容」开关再复现一次。录完可以**一键复制成 JSON** 或**下载成文件**丢给别人 debug，导出会自动带上当前分支和 commit hash，方便定位"到底是哪个版本炸的"。
+
+**注意**：跟 build badge 一样，这整套调试 UI 走的是 Vite `define` 编译时注入。在 `main` / `master` 上 `npm run build` 出来的产物里，`DevDebugPanel` 组件连同相关代码会被 esbuild 整棵树摇掉，不会出现在生产包里。换句话说——**用户永远看不到这个扳手，除非你故意在 release 分支 `VITE_SHOW_BUILD_BADGE=1`**。
+
+> 想加新开关 / 加 debug-only 日志？照着 [`docs/dev-debug.md`](./docs/dev-debug.md) 抄就行，里面有逐步指南和容易踩的坑。
+
+> 叮叮叮！调试面板不会让你的 Bug 自动修好，但至少能让你知道 Bug 在哪。大概。
 
 ### Instant Push 走独立 Worker
 
@@ -240,7 +258,7 @@ Instant Push → 配置。
 Phase 2 Round 2 起 push 路径跟本地 fetch 路径**功能对齐**，不再降级：
 
 - **Agentic loop**：worker hook 看到 LLM 输出里的数据型标签（`[[RECALL/SEARCH/READ_DIARY/
-FS_READ_DIARY/READ_NOTE/XHS_SEARCH/BROWSE/MY_PROFILE/DETAIL]]`）就走 `decision: 'tool-request'`，
+  FS_READ_DIARY/READ_NOTE/XHS_SEARCH/BROWSE/MY_PROFILE/DETAIL]]`）就走 `decision: 'tool-request'`，
   推一条 `messageKind: tool_request` 给客户端。`utils/instantToolRunner.ts` 接到后用
   `agenticTools.dispatchAgenticTool` 跑本地 MCP/DB/缓存，结果 OpenAI-shape POST 到
   worker `/continue`，由它继续下一轮 LLM。一次推送最多 10 轮（`maxLoopIterations: 10`）。
@@ -271,11 +289,11 @@ FS_READ_DIARY/READ_NOTE/XHS_SEARCH/BROWSE/MY_PROFILE/DETAIL]]`）就走 `decisio
 
 **目前硬编码了 sfworker 的地方**（搜 `workers.dev` 就能全找出来）：
 
-| 文件                           | 功能                                              |
-| ------------------------------ | ------------------------------------------------- |
-| `context/MusicContext.tsx`     | 网易云音乐 weapi 代理                             |
-| `utils/realtimeContext.ts`     | Brave 搜索 / 新闻联网（实时上下文）               |
-| `utils/webdavClient.ts`        | 原生 Capacitor 端 WebDAV 代理（绕 CORS）          |
+| 文件 | 功能 |
+|------|------|
+| `context/MusicContext.tsx` | 网易云音乐 weapi 代理 |
+| `utils/realtimeContext.ts` | Brave 搜索 / 新闻联网（实时上下文） |
+| `utils/webdavClient.ts` | 原生 Capacitor 端 WebDAV 代理（绕 CORS） |
 | `utils/proactivePushConfig.ts` | 主动消息云端推送（这个是另一个 Worker，同理要换） |
 
 **Worker 代码在 [`worker/index.js`](./worker/index.js)**（还有 `worker/proactive-push/`、`worker/sw-keep-alive.ts`），自带小红书签名、XHS 发布、网易云 weapi、Brave 搜索、WebDAV 代理这一套。直接丢到你自己的 Cloudflare Workers 里 `wrangler deploy`，拿到你自己的 `xxx.workers.dev` 地址，把上面 4 个文件里的 URL 全量替换就完事了。
@@ -287,15 +305,24 @@ FS_READ_DIARY/READ_NOTE/XHS_SEARCH/BROWSE/MY_PROFILE/DETAIL]]`）就走 `decisio
 **主动消息 2.0**  
 对接了 TO 佬的 [ReiStandard](https://github.com/Tosd0/ReiStandard/) 协议，让角色能主动发消息烦你。
 
+**Instant 消息**  
+Instant Push（发完消息就能锁屏走人、角色回复好了自己以推送的形式回到你手机上）同样出自 **TO 佬**之手。而且 TO 现在还在持续帮忙做**社区维护**、跟进修一些**小 Bug**——热心又靠谱，项目能稳稳往前走，多亏有他。再次感谢 TO 佬。
+
 **小红书 Skill**  
 对接了 [xiaohongshu-skills](https://github.com/autoclaw-cc/xiaohongshu-skills)，让角色能真·发小红书。  
 本地部署教程看这里：[真实小红书本地部署指南](https://www.kdocs.cn/l/chctbSTPfm4L)
+
+**小红书 Lite**  
+对接了 [Spider_XHS](https://github.com/cv-cat/Spider_XHS)（by cv-cat），小红书 Lite 模式靠它实现，让角色不用折腾复杂的本地部署也能刷小红书。
 
 **音乐**  
 对接了 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)，让你能在系统里搜歌、听歌、看歌词。自备网易云会员 Cookie 即可解锁 VIP 音质。原项目 [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 被迫归档后，Enhanced 版本一直在跟进网易云的协议变化，感谢维护者们的坚持。
 
 **热点**  
 对接了 [hot_news](https://github.com/orz-ai/hot_news)（by orz-ai，MIT License），提供微博、知乎、百度、B站、抖音等多平台中文热榜 API。角色聊天时能"刷到"真实热点当背景认知，分时段缓存，偶尔还会发张新闻卡片找你唠两句。
+
+**动森主题（外观 · 动森风格）**  
+桌面「动森风格」皮肤的视觉语言参考了 [animal-island-ui](https://github.com/guokaigdg/animal-island-ui)（by guokaigdg，MIT License）——一套受《集合啦！动物森友会》启发的 React 组件库。我们沿用了它的设计 token（大地棕文字、薄荷青绿、奶油米白背景）、NookPhone 应用色板、Time 时钟组件配色等，自绘了同风格的图标与界面。仅借鉴设计语言，未使用任天堂的任何商标或角色形象。
 
 ---
 
