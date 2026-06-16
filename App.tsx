@@ -3,7 +3,7 @@ import React from 'react';
 import { OSProvider } from './context/OSContext';
 import { MusicProvider } from './context/MusicContext';
 import PhoneShell from './components/PhoneShell';
-import BuildBadge from './components/BuildBadge';
+// import BuildBadge from './components/BuildBadge';
 import DevDebugPanel from './components/DevDebugPanel';
 import VRBroadcast from './components/VRBroadcast';
 import WorldBroadcast from './components/WorldBroadcast';
@@ -41,7 +41,7 @@ const App: React.FC = () => {
           </OSProvider>
         </div>
       </div>
-      <BuildBadge />
+      {/* <BuildBadge /> */}
       <DevDebugPanel />
       <VRBroadcast />
       <WorldBroadcast />
